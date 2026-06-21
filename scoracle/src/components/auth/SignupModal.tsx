@@ -1,0 +1,187 @@
+import { useMemo, useState, type FormEvent } from 'react'
+import { useAuth } from '../../context/useAuth'
+import { AuthModalFrame, FieldError, ServerMessage } from './AuthModalFrame'
+import { AuthDivider, GoogleAuthButton } from './GoogleAuthButton'
+import { isValidEmail, validatePassword } from './passwordValidation'
+
+type SignupModalProps = {
+  onClose: () => void
+  onSwitchToLogin: () => void
+}
+
+export function SignupModal({ onClose, onSwitchToLogin }: SignupModalProps) {
+  const { signUp } = useAuth()
+  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [repeatPassword, setRepeatPassword] = useState('')
+  const [serverMessage, setServerMessage] = useState<string | null>(null)
+  const [serverTone, setServerTone] = useState<'error' | 'success'>('success')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const passwordValidation = useMemo(
+    () => validatePassword(password),
+    [password],
+  )
+  const passwordsMatch = password === repeatPassword
+  const canSubmit =
+    isValidEmail(email) &&
+    username.trim().length > 0 &&
+    passwordValidation.isValid &&
+    passwordsMatch
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!canSubmit) {
+      setServerTone('error')
+      setServerMessage('Fix the highlighted fields before creating an account.')
+      return
+    }
+
+    setIsSubmitting(true)
+    setServerMessage(null)
+
+    try {
+      const message = await signUp({ email, username, password })
+      setServerTone('success')
+      setServerMessage(message)
+    } catch (error) {
+      setServerTone('error')
+      setServerMessage(
+        error instanceof Error ? error.message : 'Could not create account.',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <AuthModalFrame title="Create Account" onClose={onClose}>
+      <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+        <GoogleAuthButton label="Sign up with Google" />
+        <AuthDivider />
+
+        <label className="block text-sm font-semibold text-[#333333]">
+          Email
+          <input
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            type="email"
+            autoComplete="email"
+            className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] px-3 text-base focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+            required
+          />
+          <FieldError
+            message={
+              email && !isValidEmail(email) ? 'Enter a valid email.' : undefined
+            }
+          />
+        </label>
+
+        <label className="block text-sm font-semibold text-[#333333]">
+          Username
+          <input
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            type="text"
+            autoComplete="username"
+            className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] px-3 text-base focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+            required
+          />
+          <FieldError
+            message={
+              username.length > 0 && username.trim().length === 0
+                ? 'Username is required.'
+                : undefined
+            }
+          />
+        </label>
+
+        <label className="block text-sm font-semibold text-[#333333]">
+          Password
+          <input
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            type="password"
+            autoComplete="new-password"
+            className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] px-3 text-base focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+            required
+          />
+        </label>
+
+        <div
+          className={`rounded-lg border p-3 text-sm ${
+            passwordValidation.isValid
+              ? 'border-[#3CC8A5] bg-[#3CC8A5]/10 text-[#333333]'
+              : 'border-[#F45B5B] bg-[#F45B5B]/10 text-[#8a2626]'
+          }`}
+        >
+          <PasswordRule
+            isValid={passwordValidation.isLongEnough}
+            label="At least 8 characters"
+          />
+          <PasswordRule
+            isValid={passwordValidation.hasNumber}
+            label="Includes at least 1 number"
+          />
+          <PasswordRule
+            isValid={passwordValidation.hasSpecialCharacter}
+            label="Includes a special character"
+          />
+        </div>
+
+        <label className="block text-sm font-semibold text-[#333333]">
+          Repeat password
+          <input
+            value={repeatPassword}
+            onChange={(event) => setRepeatPassword(event.target.value)}
+            type="password"
+            autoComplete="new-password"
+            className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] px-3 text-base focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+            required
+          />
+          <FieldError
+            message={
+              repeatPassword && !passwordsMatch
+                ? 'Passwords must match.'
+                : undefined
+            }
+          />
+        </label>
+
+        <ServerMessage message={serverMessage} tone={serverTone} />
+
+        <button
+          type="submit"
+          disabled={isSubmitting || !canSubmit}
+          className="h-11 w-full rounded-lg bg-[#F45B5B] px-4 text-sm font-semibold text-white transition hover:bg-[#3CC8A5] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSubmitting ? 'Creating account...' : 'Create account'}
+        </button>
+
+        <button
+          type="button"
+          onClick={onSwitchToLogin}
+          className="w-full text-sm font-semibold text-[#3CC8A5] hover:underline"
+        >
+          Already have an account? Log in
+        </button>
+      </form>
+    </AuthModalFrame>
+  )
+}
+
+function PasswordRule({
+  isValid,
+  label,
+}: {
+  isValid: boolean
+  label: string
+}) {
+  return (
+    <p className={isValid ? 'font-semibold text-[#146b59]' : 'text-[#5f6664]'}>
+      {isValid ? 'OK' : '-'} {label}
+    </p>
+  )
+}
