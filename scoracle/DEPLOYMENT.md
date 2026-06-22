@@ -81,10 +81,11 @@ Add redirect URLs:
 ```text
 http://localhost:5173/**
 https://YOUR_NETLIFY_SITE.netlify.app/**
+https://YOUR_NETLIFY_SITE.netlify.app/auth/callback
 https://YOUR_NETLIFY_SITE.netlify.app/reset-password
 ```
 
-`/auth/callback` is not currently a Scoracle route. Google returns to Supabase first at the Supabase callback URL; Supabase then redirects back to the app.
+Google returns to Supabase first at the Supabase callback URL; Supabase then redirects back to `/auth/callback` in the app.
 
 ## Google OAuth Configuration
 
@@ -172,6 +173,7 @@ Do not force push, rewrite history, reset the remote database, or delete branche
 - [ ] Direct refresh on `/profile` works.
 - [ ] Direct refresh on `/leaderboard` works.
 - [ ] Direct refresh on `/admin-soodlabs` works.
+- [ ] Direct refresh on `/auth/callback` works.
 - [ ] Direct refresh on `/reset-password` works.
 - [ ] Google login works.
 - [ ] User profile loads.
