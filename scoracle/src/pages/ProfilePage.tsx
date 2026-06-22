@@ -111,6 +111,7 @@ export function ProfilePage() {
   const [deletingPredictionId, setDeletingPredictionId] = useState<string | null>(
     null,
   )
+  const [deleteConfirmationItem, setDeleteConfirmationItem] = useState<HistoryItem | null>(null)
 
   useEffect(() => {
     if (profile) {
@@ -549,7 +550,7 @@ export function ProfilePage() {
     setAvatarUrl(URL.createObjectURL(file))
   }
 
-  async function handleDeletePrediction(item: HistoryItem) {
+  function handleInitiateDeletePrediction(item: HistoryItem) {
     if (
       isMatchweekLocked(item.prediction.match_week, history) ||
       hasActualResult(item.fixture)
@@ -558,15 +559,16 @@ export function ProfilePage() {
       return
     }
 
-    const shouldDelete = window.confirm(
-      'Delete this saved prediction? You can enter it again while the match week is open.',
-    )
+    setDeleteConfirmationItem(item)
+  }
 
-    if (!shouldDelete) {
+  async function handleConfirmDeletePrediction() {
+    if (!deleteConfirmationItem) {
       return
     }
 
-    setDeletingPredictionId(item.prediction.id)
+    setDeletingPredictionId(deleteConfirmationItem.prediction.id)
+    setDeleteConfirmationItem(null)
     setError(null)
     setMessage(null)
 
@@ -574,7 +576,7 @@ export function ProfilePage() {
       const { error: deleteError } = await supabase
         .from('predictions')
         .delete()
-        .eq('id', item.prediction.id)
+        .eq('id', deleteConfirmationItem.prediction.id)
 
       if (deleteError) {
         throw deleteError
@@ -582,7 +584,7 @@ export function ProfilePage() {
 
       setHistory((current) =>
         current.filter(
-          (historyItem) => historyItem.prediction.id !== item.prediction.id,
+          (historyItem) => historyItem.prediction.id !== deleteConfirmationItem.prediction.id,
         ),
       )
       setMessage('Prediction deleted.')
@@ -595,6 +597,10 @@ export function ProfilePage() {
     } finally {
       setDeletingPredictionId(null)
     }
+  }
+
+  function handleCancelDelete() {
+    setDeleteConfirmationItem(null)
   }
 
   return (
@@ -916,7 +922,7 @@ export function ProfilePage() {
                                 ) : (
                                   <button
                                     type="button"
-                                    onClick={() => handleDeletePrediction(item)}
+                                    onClick={() => handleInitiateDeletePrediction(item)}
                                     disabled={
                                       deletingPredictionId === item.prediction.id
                                     }
@@ -940,6 +946,37 @@ export function ProfilePage() {
           </section>
         </div>
       </section>
+
+      {deleteConfirmationItem ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="rounded-lg border border-[#DADADA] bg-white p-6 shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1)] max-w-sm">
+            <h3 className="text-lg font-semibold text-[#333333]">
+              Delete Prediction?
+            </h3>
+            <p className="mt-2 text-sm text-[#5f6664]">
+              Delete this saved prediction? You can enter it again while the match week is open.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={handleConfirmDeletePrediction}
+                disabled={deletingPredictionId === deleteConfirmationItem.prediction.id}
+                className="flex-1 inline-flex h-10 items-center justify-center rounded-lg bg-[#F45B5B] text-sm font-semibold text-white transition hover:bg-[#d63939] disabled:opacity-60"
+              >
+                {deletingPredictionId === deleteConfirmationItem.prediction.id ? 'Deleting...' : 'Delete'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelDelete}
+                disabled={deletingPredictionId === deleteConfirmationItem.prediction.id}
+                className="flex-1 inline-flex h-10 items-center justify-center rounded-lg border border-[#DADADA] bg-[#F9F9F9] text-sm font-semibold text-[#333333] transition hover:bg-[#EEEEEE] disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }
