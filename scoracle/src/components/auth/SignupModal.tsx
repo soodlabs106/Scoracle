@@ -96,6 +96,7 @@ export function SignupModal({ onClose, onSwitchToLogin }: SignupModalProps) {
       })
       setServerTone('success')
       setServerMessage(message)
+      onClose()
     } catch (error) {
       setServerTone('error')
       setServerMessage(
