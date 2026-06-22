@@ -35,12 +35,12 @@ export async function handler(event) {
   const season = params.season ?? process.env.SCORACLE_SEASON ?? '2026'
   const compSeasonId =
     process.env.PULSE_COMP_SEASON_ID ?? DEFAULT_COMP_SEASON_ID
-  const cacheKey = `home-data:${season}:${compSeasonId}`
+  const cacheKey = `home-data-v3:${season}:${compSeasonId}`
 
   try {
     const cached = await readSupabaseCache(cacheKey)
 
-    if (cached) {
+    if (cached && hasFixtureDatabaseIds(cached)) {
       return jsonResponse(cached)
     }
 
@@ -69,10 +69,16 @@ export async function handler(event) {
       fetchPulseLeadersWithFallback('clean_sheet', compSeasonId, teamsById),
     ])
 
+    const syncedFixtures = await syncHomeDataToSupabase({
+      season,
+      teams,
+      fixtures,
+    })
+
     const payload = {
       teams,
       standings,
-      fixtures,
+      fixtures: syncedFixtures,
       leaderboards: {
         scorers: await enrichPlayerPhotos(scorers),
         assists: await enrichPlayerPhotos(assists),
@@ -317,6 +323,12 @@ async function readSupabaseCache(requestKey) {
   return rows?.[0]?.payload ?? null
 }
 
+function hasFixtureDatabaseIds(payload) {
+  const fixtures = payload?.fixtures ?? []
+
+  return fixtures.length === 0 || fixtures.every((fixture) => fixture.dbId)
+}
+
 async function writeSupabaseCache(requestKey, payload) {
   const config = getSupabaseConfig()
 
@@ -338,6 +350,104 @@ async function writeSupabaseCache(requestKey, payload) {
       updated_at: new Date().toISOString(),
     }),
   })
+}
+
+async function syncHomeDataToSupabase({ season, teams, fixtures }) {
+  const config = getSupabaseConfig()
+
+  if (!config) {
+    return fixtures
+  }
+
+  const teamRows = await upsertSupabaseRows(
+    config,
+    'teams',
+    'pulse_team_id',
+    teams.map((team) => ({
+      canonical_name: team.name,
+      short_name: team.shortName,
+      pulse_team_id: team.id,
+      crest_url: team.crestUrl ?? null,
+      logo_url: team.crestUrl ?? null,
+      updated_at: new Date().toISOString(),
+    })),
+  )
+  const teamsByPulseId = new Map(
+    teamRows.map((team) => [String(team.pulse_team_id), team.id]),
+  )
+
+  const fixtureRows = await upsertSupabaseRows(
+    config,
+    'fixtures',
+    'provider,provider_fixture_id',
+    fixtures
+      .map((fixture) => {
+        const homeTeamDbId = teamsByPulseId.get(fixture.homeTeamId)
+        const awayTeamDbId = teamsByPulseId.get(fixture.awayTeamId)
+
+        if (!homeTeamDbId || !awayTeamDbId) {
+          return null
+        }
+
+        return {
+          season,
+          provider: 'Premier League Pulse',
+          provider_fixture_id: fixture.id,
+          matchweek: fixture.matchweek,
+          kickoff_utc: fixture.kickoffUtc,
+          status: fixture.status,
+          venue: fixture.venue,
+          home_team_id: homeTeamDbId,
+          away_team_id: awayTeamDbId,
+          home_score: fixture.homeScore,
+          away_score: fixture.awayScore,
+          scorers: fixture.scorers,
+          assists: fixture.assists,
+          raw_payload: {},
+          updated_at: new Date().toISOString(),
+        }
+      })
+      .filter(Boolean),
+  )
+  const fixturesByProviderId = new Map(
+    fixtureRows.map((fixture) => [String(fixture.provider_fixture_id), fixture]),
+  )
+
+  return fixtures.map((fixture) => {
+    const syncedFixture = fixturesByProviderId.get(fixture.id)
+
+    return {
+      ...fixture,
+      dbId: syncedFixture?.id,
+      providerFixtureId: fixture.id,
+    }
+  })
+}
+
+async function upsertSupabaseRows(config, table, onConflict, rows) {
+  if (rows.length === 0) {
+    return []
+  }
+
+  const response = await fetch(
+    `${config.url}/rest/v1/${table}?on_conflict=${encodeURIComponent(onConflict)}`,
+    {
+      method: 'POST',
+      headers: {
+        ...supabaseHeaders(config),
+        'content-type': 'application/json',
+        prefer: 'resolution=merge-duplicates,return=representation',
+      },
+      body: JSON.stringify(rows),
+    },
+  )
+
+  if (!response.ok) {
+    const details = await response.text()
+    throw new Error(`Supabase ${table} sync failed: ${details}`)
+  }
+
+  return response.json()
 }
 
 function getSupabaseConfig() {
@@ -363,7 +473,7 @@ function jsonResponse(payload, statusCode = 200) {
     statusCode,
     headers: {
       'content-type': 'application/json',
-      'cache-control': 'public, max-age=300',
+      'cache-control': 'no-store',
     },
     body: JSON.stringify(payload),
   }

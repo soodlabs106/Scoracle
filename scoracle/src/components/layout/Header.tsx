@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, UserRound } from 'lucide-react'
 import { useAuth } from '../../context/useAuth'
 import { useState } from 'react'
 
@@ -131,6 +131,13 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
                   {profile.username}
                 </button>
               )}
+              <Link
+                to="/profile"
+                aria-label="Open profile"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#DADADA] bg-white text-[#3CC8A5] transition hover:bg-[#E8F4FA]"
+              >
+                <UserRound className="h-5 w-5" />
+              </Link>
               <button
                 type="button"
                 onClick={handleSignOut}

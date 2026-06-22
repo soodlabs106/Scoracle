@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useAuth } from '../../context/useAuth'
 import { AuthModalFrame, FieldError, ServerMessage } from './AuthModalFrame'
 import { AuthDivider, GoogleAuthButton } from './GoogleAuthButton'
@@ -10,7 +10,7 @@ type SignupModalProps = {
 }
 
 export function SignupModal({ onClose, onSwitchToLogin }: SignupModalProps) {
-  const { signUp } = useAuth()
+  const { checkUsernameAvailability, signUp } = useAuth()
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -18,17 +18,55 @@ export function SignupModal({ onClose, onSwitchToLogin }: SignupModalProps) {
   const [serverMessage, setServerMessage] = useState<string | null>(null)
   const [serverTone, setServerTone] = useState<'error' | 'success'>('success')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [usernameStatus, setUsernameStatus] = useState<
+    'idle' | 'checking' | 'available' | 'taken' | 'error'
+  >('idle')
 
   const passwordValidation = useMemo(
     () => validatePassword(password),
     [password],
   )
+  const trimmedUsername = username.trim()
+  const usernameHasOnlyWhitespace =
+    username.length > 0 && trimmedUsername.length === 0
   const passwordsMatch = password === repeatPassword
   const canSubmit =
     isValidEmail(email) &&
-    username.trim().length > 0 &&
+    usernameStatus === 'available' &&
     passwordValidation.isValid &&
     passwordsMatch
+
+  useEffect(() => {
+    if (!trimmedUsername) {
+      return
+    }
+
+    let isCurrent = true
+
+    const timeoutId = window.setTimeout(() => {
+      checkUsernameAvailability(trimmedUsername)
+        .then((isAvailable) => {
+          if (isCurrent) {
+            setUsernameStatus(isAvailable ? 'available' : 'taken')
+          }
+        })
+        .catch(() => {
+          if (isCurrent) {
+            setUsernameStatus('error')
+          }
+        })
+    }, 350)
+
+    return () => {
+      isCurrent = false
+      window.clearTimeout(timeoutId)
+    }
+  }, [checkUsernameAvailability, trimmedUsername])
+
+  function handleUsernameChange(nextUsername: string) {
+    setUsername(nextUsername)
+    setUsernameStatus(nextUsername.trim() ? 'checking' : 'idle')
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -83,19 +121,34 @@ export function SignupModal({ onClose, onSwitchToLogin }: SignupModalProps) {
           Username
           <input
             value={username}
-            onChange={(event) => setUsername(event.target.value)}
+            onChange={(event) => handleUsernameChange(event.target.value)}
             type="text"
             autoComplete="username"
-            className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] px-3 text-base focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+            className={`mt-1 h-11 w-full rounded-lg border px-3 text-base focus:outline-none focus:ring-2 ${
+              usernameStatus === 'taken' ||
+              usernameStatus === 'error' ||
+              usernameHasOnlyWhitespace
+                ? 'border-[#F45B5B] focus:border-[#F45B5B] focus:ring-[#F45B5B]/20'
+                : usernameStatus === 'available'
+                  ? 'border-[#3CC8A5] focus:border-[#3CC8A5] focus:ring-[#3CC8A5]/20'
+                  : 'border-[#DADADA] focus:border-[#3CC8A5] focus:ring-[#3CC8A5]/20'
+            }`}
             required
           />
-          <FieldError
-            message={
-              username.length > 0 && username.trim().length === 0
-                ? 'Username is required.'
-                : undefined
-            }
-          />
+          {usernameStatus === 'available' ? (
+            <p className="mt-1 text-sm font-semibold text-[#146b59]">
+              Username is available.
+            </p>
+          ) : null}
+          {usernameStatus === 'checking' ? (
+            <p className="mt-1 text-sm font-semibold text-[#5f6664]">
+              Checking username...
+            </p>
+          ) : null}
+          <p className="mt-1 text-xs font-medium text-[#5f6664]">
+            Spaces and letter casing are ignored for username availability.
+          </p>
+          <FieldError message={getUsernameError(usernameStatus, username)} />
         </label>
 
         <label className="block text-sm font-semibold text-[#333333]">
@@ -184,4 +237,23 @@ function PasswordRule({
       {isValid ? 'OK' : '-'} {label}
     </p>
   )
+}
+
+function getUsernameError(
+  status: 'idle' | 'checking' | 'available' | 'taken' | 'error',
+  username: string,
+) {
+  if (username.length > 0 && username.trim().length === 0) {
+    return 'Username is required.'
+  }
+
+  if (status === 'taken') {
+    return 'That username is already taken.'
+  }
+
+  if (status === 'error') {
+    return 'Could not check username availability.'
+  }
+
+  return undefined
 }

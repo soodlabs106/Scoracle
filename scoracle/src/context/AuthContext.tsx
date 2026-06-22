@@ -25,7 +25,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, username, email, role, is_disabled, created_at')
+      .select(
+        'id, username, email, role, is_disabled, favorite_club, avatar_url, avatar_path, created_at',
+      )
       .eq('id', userId)
       .maybeSingle()
 
@@ -115,18 +117,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [applySession])
 
-  const signUp = useCallback(async ({ email, username, password }: SignupInput) => {
-    const trimmedUsername = username.trim()
-    const normalizedEmail = email.trim().toLowerCase()
-
+  const checkUsernameAvailability = useCallback(async (username: string) => {
     const { data: isAvailable, error: usernameError } = await supabase.rpc(
       'is_username_available',
-      { candidate_username: trimmedUsername },
+      { candidate_username: username.trim() },
     )
 
     if (usernameError) {
       throw new Error('Could not check username availability.')
     }
+
+    return Boolean(isAvailable)
+  }, [])
+
+  const signUp = useCallback(async ({ email, username, password }: SignupInput) => {
+    const trimmedUsername = username.trim()
+    const normalizedEmail = email.trim().toLowerCase()
+
+    const isAvailable = await checkUsernameAvailability(trimmedUsername)
 
     if (!isAvailable) {
       throw new Error('That username is already taken.')
@@ -157,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return 'Account created. Check your email to confirm your account before logging in.'
-  }, [applySession])
+  }, [applySession, checkUsernameAvailability])
 
   const signIn = useCallback(
     async (email: string, password: string) => {
@@ -239,40 +247,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const updateUsername = useCallback(
-    async (username: string) => {
+  const updateProfile = useCallback(
+    async ({
+      username,
+      favoriteClub,
+      avatarUrl,
+      avatarPath,
+    }: {
+      username: string
+      favoriteClub: string | null
+      avatarUrl?: string | null
+      avatarPath?: string | null
+    }) => {
       if (!state.user) {
-        throw new Error('You must be signed in to update your username.')
+        throw new Error('You must be signed in to update your profile.')
+      }
+
+      if (!state.profile) {
+        throw new Error('Could not load your profile.')
       }
 
       const trimmedUsername = username.trim()
+      const trimmedFavoriteClub = favoriteClub?.trim() || null
+      const nextAvatarUrl =
+        avatarUrl === undefined ? state.profile.avatar_url : avatarUrl
+      const nextAvatarPath =
+        avatarPath === undefined ? state.profile.avatar_path : avatarPath
 
       if (!trimmedUsername) {
         throw new Error('Username is required.')
       }
 
-      if (trimmedUsername === state.profile?.username) {
-        return
+      const usernameChanged = trimmedUsername !== state.profile?.username
+      const favoriteClubChanged =
+        trimmedFavoriteClub !== (state.profile?.favorite_club ?? null)
+      const avatarChanged =
+        nextAvatarUrl !== (state.profile.avatar_url ?? null) ||
+        nextAvatarPath !== (state.profile.avatar_path ?? null)
+
+      if (!usernameChanged && !favoriteClubChanged && !avatarChanged) {
+        return state.profile
       }
 
-      const { data: isAvailable, error: usernameError } = await supabase.rpc(
-        'is_username_available',
-        { candidate_username: trimmedUsername },
-      )
+      if (usernameChanged) {
+        const isAvailable = await checkUsernameAvailability(trimmedUsername)
 
-      if (usernameError) {
-        throw new Error('Could not check username availability.')
-      }
-
-      if (!isAvailable) {
-        throw new Error('That username is already taken.')
+        if (!isAvailable) {
+          throw new Error('That username is already taken.')
+        }
       }
 
       const { data, error } = await supabase
         .from('profiles')
-        .update({ username: trimmedUsername })
+        .update({
+          username: trimmedUsername,
+          favorite_club: trimmedFavoriteClub,
+          avatar_url: nextAvatarUrl,
+          avatar_path: nextAvatarPath,
+        })
         .eq('id', state.user.id)
-        .select('id, username, email, role, is_disabled, created_at')
+        .select(
+          'id, username, email, role, is_disabled, favorite_club, avatar_url, avatar_path, created_at',
+        )
         .single()
 
       if (error) {
@@ -282,10 +318,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState((current) => ({
         ...current,
         profile: data as Profile,
-        message: 'Username updated.',
+        message: 'Profile updated.',
       }))
+
+      return data as Profile
     },
-    [state.profile?.username, state.user],
+    [checkUsernameAvailability, state.profile, state.user],
+  )
+
+  const updateUsername = useCallback(
+    async (username: string) => {
+      await updateProfile({
+        username,
+        favoriteClub: state.profile?.favorite_club ?? null,
+      })
+    },
+    [state.profile?.favorite_club, updateProfile],
   )
 
   const refreshProfile = useCallback(async () => {
@@ -302,6 +350,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       isAdmin: state.profile?.role === 'admin' && !state.profile.is_disabled,
+      checkUsernameAvailability,
       signUp,
       signIn,
       signInWithGoogle,
@@ -309,17 +358,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPassword,
       updatePassword,
       updateUsername,
+      updateProfile,
       refreshProfile,
     }),
     [
       refreshProfile,
       resetPassword,
+      checkUsernameAvailability,
       signIn,
       signInWithGoogle,
       signOut,
       signUp,
       state,
       updatePassword,
+      updateProfile,
       updateUsername,
     ],
   )
@@ -332,6 +384,10 @@ function toFriendlyAuthError(message: string) {
 
   if (normalized.includes('invalid login credentials')) {
     return 'Invalid email or password.'
+  }
+
+  if (normalized.includes('username')) {
+    return 'That username is already taken.'
   }
 
   if (normalized.includes('already registered') || normalized.includes('already exists')) {

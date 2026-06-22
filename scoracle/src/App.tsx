@@ -4,6 +4,8 @@ import {
   ChevronDown,
   Clock3,
   Goal,
+  LockKeyhole,
+  Save,
   ShieldCheck,
   Trophy,
   UserRound,
@@ -12,6 +14,7 @@ import { ForgotPasswordModal } from './components/auth/ForgotPasswordModal'
 import { LoginModal } from './components/auth/LoginModal'
 import { SignupModal } from './components/auth/SignupModal'
 import { Header } from './components/layout/Header'
+import { useAuth } from './context/useAuth'
 import {
   fetchHomeData,
   mockHomeData,
@@ -20,6 +23,14 @@ import {
   type Leader,
   type Team,
 } from './data/homeData'
+import { supabase } from './lib/supabaseClient'
+import type { PredictionDraft, PredictionRow } from './types/predictions'
+import {
+  getPredictionCloseness,
+  getPredictionClosenessDisplay,
+  getPredictionPoints,
+  type PredictionCloseness,
+} from './utils/predictionScoring'
 
 const IST_FORMATTER = new Intl.DateTimeFormat('en-IN', {
   timeZone: 'Asia/Kolkata',
@@ -39,8 +50,10 @@ const MONTH_FORMATTER = new Intl.DateTimeFormat('en-IN', {
 })
 
 type ModalKind = 'login' | 'signup' | 'forgot' | null
+type PredictionMessageTone = 'error' | 'success' | 'info'
 
 function App() {
+  const { profile, user } = useAuth()
   const [homeData, setHomeData] = useState<HomeData>(mockHomeData)
   const [isLoading, setIsLoading] = useState(true)
   const [dataNotice, setDataNotice] = useState('Loading live home data')
@@ -49,6 +62,21 @@ function App() {
   const [selectedMonth, setSelectedMonth] = useState('all')
   const [isClubMenuOpen, setIsClubMenuOpen] = useState(false)
   const [modalKind, setModalKind] = useState<ModalKind>(null)
+  const [selectedPredictionMatchweek, setSelectedPredictionMatchweek] =
+    useState('')
+  const [predictionsByFixtureId, setPredictionsByFixtureId] = useState<
+    Map<string, PredictionRow>
+  >(new Map())
+  const [predictionDrafts, setPredictionDrafts] = useState<
+    Record<string, PredictionDraft>
+  >({})
+  const [dirtyFixtureIds, setDirtyFixtureIds] = useState<Set<string>>(new Set())
+  const [isPredictionsLoading, setIsPredictionsLoading] = useState(false)
+  const [isSavingPredictions, setIsSavingPredictions] = useState(false)
+  const [predictionMessage, setPredictionMessage] = useState<{
+    tone: PredictionMessageTone
+    text: string
+  } | null>(null)
 
   const teamsById = useMemo(
     () => new Map(homeData.teams.map((team) => [team.id, team])),
@@ -102,6 +130,30 @@ function App() {
     [homeData.fixtures, selectedClubId, selectedMatchweek, selectedMonth],
   )
 
+  const isPredictionMode = Boolean(profile && user)
+  const defaultPredictionMatchweek = useMemo(
+    () => getDefaultPredictionMatchweek(homeData.fixtures),
+    [homeData.fixtures],
+  )
+  const activePredictionMatchweek =
+    selectedPredictionMatchweek || defaultPredictionMatchweek.toString()
+  const predictionMatchweekNumber = Number(activePredictionMatchweek)
+  const predictionFixtures = useMemo(
+    () =>
+      homeData.fixtures
+        .filter((fixture) => fixture.matchweek === predictionMatchweekNumber)
+        .sort(
+          (first, second) =>
+            new Date(first.kickoffUtc).getTime() -
+            new Date(second.kickoffUtc).getTime(),
+        ),
+    [homeData.fixtures, predictionMatchweekNumber],
+  )
+  const predictionLockInfo = useMemo(
+    () => getMatchweekLockInfo(predictionFixtures),
+    [predictionFixtures],
+  )
+
   const scopedLeaderboards = useMemo(
     () => ({
       scorers: scopeLeaders(homeData.leaderboards.scorers, selectedClubId),
@@ -145,6 +197,263 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!user || !activePredictionMatchweek) {
+      return
+    }
+
+    let isMounted = true
+    const currentUser = user
+
+    async function loadPredictions() {
+      setIsPredictionsLoading(true)
+      setPredictionMessage(null)
+
+      try {
+        await supabase.rpc('score_my_predictions_for_completed_fixtures')
+
+        const { data, error } = await supabase
+          .from('predictions')
+          .select(
+            'id, user_id, fixture_id, match_week, predicted_home_score, predicted_away_score, closeness, points, is_locked, created_at, updated_at',
+          )
+          .eq('user_id', currentUser.id)
+          .eq('match_week', Number(activePredictionMatchweek))
+
+        if (error) {
+          throw error
+        }
+
+        if (!isMounted) {
+          return
+        }
+
+        const predictionRows = (data ?? []) as PredictionRow[]
+        const nextPredictions = new Map(
+          predictionRows.map((prediction) => [
+            prediction.fixture_id,
+            prediction,
+          ]),
+        )
+        const nextDrafts: Record<string, PredictionDraft> = {}
+
+        for (const fixture of predictionFixtures) {
+          const draftKey = getPredictionDraftKey(fixture)
+          const prediction = fixture.dbId
+            ? nextPredictions.get(fixture.dbId)
+            : undefined
+          nextDrafts[draftKey] = prediction
+            ? {
+                home: prediction.predicted_home_score.toString(),
+                away: prediction.predicted_away_score.toString(),
+              }
+            : { home: '', away: '' }
+        }
+
+        setPredictionsByFixtureId(nextPredictions)
+        setPredictionDrafts(nextDrafts)
+        setDirtyFixtureIds(new Set())
+      } catch (error) {
+        if (isMounted) {
+          setPredictionMessage({
+            tone: 'error',
+            text:
+              error instanceof Error
+                ? error.message
+                : 'Could not load predictions.',
+          })
+        }
+      } finally {
+        if (isMounted) {
+          setIsPredictionsLoading(false)
+        }
+      }
+    }
+
+    loadPredictions()
+
+    return () => {
+      isMounted = false
+    }
+  }, [activePredictionMatchweek, predictionFixtures, user])
+
+  function updatePredictionDraft(
+    fixtureKey: string,
+    side: keyof PredictionDraft,
+    value: string,
+  ) {
+    const nextValue = value.replace(/\D/g, '').slice(0, 2)
+
+    setPredictionDrafts((current) => ({
+      ...current,
+      [fixtureKey]: {
+        home: current[fixtureKey]?.home ?? '',
+        away: current[fixtureKey]?.away ?? '',
+        [side]: nextValue,
+      },
+    }))
+    setDirtyFixtureIds((current) => {
+      const next = new Set(current)
+      next.add(fixtureKey)
+      return next
+    })
+  }
+
+  async function savePredictions() {
+    if (!user) {
+      setPredictionMessage({
+        tone: 'error',
+        text: 'Log in before saving predictions.',
+      })
+      return
+    }
+
+    if (predictionLockInfo.isLocked) {
+      setPredictionMessage({
+        tone: 'error',
+        text: 'Predictions locked for this match week.',
+      })
+      return
+    }
+
+    let fixturesForSave = predictionFixtures
+    const hasUnsyncedDirtyFixture = fixturesForSave.some(
+      (fixture) =>
+        !fixture.dbId && dirtyFixtureIds.has(getPredictionDraftKey(fixture)),
+    )
+
+    if (hasUnsyncedDirtyFixture) {
+      setPredictionMessage({
+        tone: 'info',
+        text: 'Refreshing fixture sync before saving...',
+      })
+
+      try {
+        const freshHomeData = await fetchHomeData()
+        setHomeData(freshHomeData)
+        fixturesForSave = freshHomeData.fixtures.filter(
+          (fixture) => fixture.matchweek === predictionMatchweekNumber,
+        )
+      } catch {
+        setPredictionMessage({
+          tone: 'error',
+          text: 'Fixture sync is still loading. Try again in a moment.',
+        })
+        return
+      }
+    }
+
+    const changedFixtures = fixturesForSave.filter(
+      (fixture) => dirtyFixtureIds.has(getPredictionDraftKey(fixture)),
+    )
+
+    if (changedFixtures.length === 0) {
+      setPredictionMessage({
+        tone: 'info',
+        text: 'No prediction changes to save.',
+      })
+      return
+    }
+
+    const rows = []
+
+    for (const fixture of changedFixtures) {
+      if (!fixture.dbId) {
+        setPredictionMessage({
+          tone: 'error',
+          text: 'Fixture sync is still loading. Try again in a moment.',
+        })
+        return
+      }
+
+      const draft = predictionDrafts[getPredictionDraftKey(fixture)]
+
+      if (!draft?.home || !draft.away) {
+        setPredictionMessage({
+          tone: 'error',
+          text: 'Add both home and away scores before saving.',
+        })
+        return
+      }
+
+      const predictedHome = Number(draft.home)
+      const predictedAway = Number(draft.away)
+
+      if (
+        !Number.isInteger(predictedHome) ||
+        !Number.isInteger(predictedAway) ||
+        predictedHome < 0 ||
+        predictedHome > 99 ||
+        predictedAway < 0 ||
+        predictedAway > 99
+      ) {
+        setPredictionMessage({
+          tone: 'error',
+          text: 'Scores must be whole numbers from 0 to 99.',
+        })
+        return
+      }
+
+      const closeness = getPredictionCloseness(
+        predictedHome,
+        predictedAway,
+        fixture.homeScore,
+        fixture.awayScore,
+      )
+
+      rows.push({
+        user_id: user.id,
+        fixture_id: fixture.dbId,
+        match_week: fixture.matchweek,
+        predicted_home_score: predictedHome,
+        predicted_away_score: predictedAway,
+        closeness,
+        points: getPredictionPoints(closeness),
+        is_locked: false,
+      })
+    }
+
+    setIsSavingPredictions(true)
+    setPredictionMessage(null)
+
+    try {
+      const { data, error } = await supabase
+        .from('predictions')
+        .upsert(rows, { onConflict: 'user_id,fixture_id' })
+        .select(
+          'id, user_id, fixture_id, match_week, predicted_home_score, predicted_away_score, closeness, points, is_locked, created_at, updated_at',
+        )
+
+      if (error) {
+        throw error
+      }
+
+      const savedPredictions = (data ?? []) as PredictionRow[]
+      setPredictionsByFixtureId((current) => {
+        const next = new Map(current)
+
+        for (const prediction of savedPredictions) {
+          next.set(prediction.fixture_id, prediction)
+        }
+
+        return next
+      })
+      setDirtyFixtureIds(new Set())
+      setPredictionMessage({
+        tone: 'success',
+        text: 'Predictions saved.',
+      })
+    } catch (error) {
+      setPredictionMessage({
+        tone: 'error',
+        text:
+          error instanceof Error ? error.message : 'Could not save predictions.',
+      })
+    } finally {
+      setIsSavingPredictions(false)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#F9F9F9] text-[#333333]">
       <Header
@@ -164,10 +473,12 @@ function App() {
               <div>
                 <SectionTitle
                   icon={<CalendarDays className="h-5 w-5" />}
-                  title="Fixtures"
+                  title={isPredictionMode ? 'Predictions' : 'Fixtures'}
                 />
                 <p className="mt-1 text-sm text-[#5f6664]">
-                  Ordered by kickoff. All times shown in IST.
+                  {isPredictionMode
+                    ? 'Enter score predictions for the selected match week.'
+                    : 'Ordered by kickoff. All times shown in IST.'}
                 </p>
               </div>
               <span className="inline-flex w-fit items-center rounded-full bg-[#EEDFA3]/65 px-3 py-1 text-xs font-semibold text-[#333333]">
@@ -175,59 +486,135 @@ function App() {
               </span>
             </div>
 
-            <div className="mt-4 grid items-end gap-3 xl:grid-cols-[1.35fr_0.75fr_0.75fr]">
-              <ClubFilter
-                teams={homeData.teams}
-                selectedClubId={selectedClubId}
-                isOpen={isClubMenuOpen}
-                onToggle={() => setIsClubMenuOpen((value) => !value)}
-                onSelect={(teamId) => {
-                  setSelectedClubId(teamId)
-                  setIsClubMenuOpen(false)
-                }}
-              />
-              <label className="grid gap-1 text-left text-xs font-semibold uppercase text-[#5f6664]">
-                <span className="leading-4">Match Week</span>
-                <select
-                  value={selectedMatchweek}
-                  onChange={(event) => setSelectedMatchweek(event.target.value)}
-                  className="h-11 w-full rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 text-sm font-semibold normal-case text-[#333333] focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+            {isPredictionMode ? (
+              <div className="mt-4 grid items-end gap-3 xl:grid-cols-[1fr_auto_auto]">
+                <label className="grid gap-1 text-left text-xs font-semibold uppercase text-[#5f6664]">
+                  <span className="leading-4">Match Week</span>
+                  <select
+                    value={activePredictionMatchweek}
+                    onChange={(event) =>
+                      setSelectedPredictionMatchweek(event.target.value)
+                    }
+                    className="h-11 w-full rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 text-sm font-semibold normal-case text-[#333333] focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+                  >
+                    {matchweeks.map((matchweek) => (
+                      <option key={matchweek} value={matchweek}>
+                        MW {matchweek}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <span
+                  className={`inline-flex h-11 items-center gap-2 rounded-lg border px-3 text-sm font-semibold ${
+                    predictionLockInfo.isLocked
+                      ? 'border-[#F45B5B] bg-[#F45B5B]/10 text-[#8a2626]'
+                      : 'border-[#3CC8A5] bg-[#3CC8A5]/10 text-[#146b59]'
+                  }`}
                 >
-                  <option value="all">All matchweeks</option>
-                  {matchweeks.map((matchweek) => (
-                    <option key={matchweek} value={matchweek}>
-                      Matchweek {matchweek}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-left text-xs font-semibold uppercase text-[#5f6664]">
-                <span className="leading-4">Month</span>
-                <select
-                  value={selectedMonth}
-                  onChange={(event) => setSelectedMonth(event.target.value)}
-                  className="h-11 w-full rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 text-sm font-semibold normal-case text-[#333333] focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+                  <LockKeyhole className="h-4 w-4" />
+                  {predictionLockInfo.isLocked ? 'Predictions locked' : 'Open'}
+                </span>
+                <button
+                  type="button"
+                  onClick={savePredictions}
+                  disabled={
+                    isSavingPredictions ||
+                    isPredictionsLoading ||
+                    predictionLockInfo.isLocked
+                  }
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#3CC8A5] px-4 text-sm font-semibold text-white transition hover:bg-[#F45B5B] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <option value="all">All months</option>
-                  {months.map((month) => (
-                    <option key={month} value={month}>
-                      {formatMonth(month)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+                  <Save className="h-4 w-4" />
+                  {isSavingPredictions ? 'Saving...' : 'Save Predictions'}
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 grid items-end gap-3 xl:grid-cols-[1.35fr_0.75fr_0.75fr]">
+                <ClubFilter
+                  teams={homeData.teams}
+                  selectedClubId={selectedClubId}
+                  isOpen={isClubMenuOpen}
+                  onToggle={() => setIsClubMenuOpen((value) => !value)}
+                  onSelect={(teamId) => {
+                    setSelectedClubId(teamId)
+                    setIsClubMenuOpen(false)
+                  }}
+                />
+                <label className="grid gap-1 text-left text-xs font-semibold uppercase text-[#5f6664]">
+                  <span className="leading-4">Match Week</span>
+                  <select
+                    value={selectedMatchweek}
+                    onChange={(event) => setSelectedMatchweek(event.target.value)}
+                    className="h-11 w-full rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 text-sm font-semibold normal-case text-[#333333] focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+                  >
+                    <option value="all">All matchweeks</option>
+                    {matchweeks.map((matchweek) => (
+                      <option key={matchweek} value={matchweek}>
+                        Matchweek {matchweek}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1 text-left text-xs font-semibold uppercase text-[#5f6664]">
+                  <span className="leading-4">Month</span>
+                  <select
+                    value={selectedMonth}
+                    onChange={(event) => setSelectedMonth(event.target.value)}
+                    className="h-11 w-full rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 text-sm font-semibold normal-case text-[#333333] focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+                  >
+                    <option value="all">All months</option>
+                    {months.map((month) => (
+                      <option key={month} value={month}>
+                        {formatMonth(month)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+
+            {predictionMessage ? (
+              <p
+                className={`mt-3 rounded-lg border px-3 py-2 text-sm font-semibold ${
+                  predictionMessage.tone === 'success'
+                    ? 'border-[#3CC8A5] bg-[#3CC8A5]/10 text-[#146b59]'
+                    : predictionMessage.tone === 'info'
+                      ? 'border-[#4DB7E8] bg-[#E8F4FA] text-[#333333]'
+                      : 'border-[#F45B5B] bg-[#F45B5B]/10 text-[#8a2626]'
+                }`}
+              >
+                {predictionMessage.text}
+              </p>
+            ) : null}
           </div>
 
           <div className="min-h-0 flex-1 space-y-3 lg:overflow-y-auto lg:pr-2">
-            {filteredFixtures.length > 0 ? (
-              filteredFixtures.map((fixture) => (
-                <FixtureCard
-                  key={fixture.id}
-                  fixture={fixture}
-                  teamsById={teamsById}
-                />
-              ))
+            {isPredictionsLoading ? (
+              <EmptyState message="Loading your saved predictions..." />
+            ) : (isPredictionMode ? predictionFixtures : filteredFixtures)
+                .length > 0 ? (
+              (isPredictionMode ? predictionFixtures : filteredFixtures).map((fixture) => {
+                const draftKey = getPredictionDraftKey(fixture)
+
+                return (
+                  <FixtureCard
+                    key={fixture.id}
+                    fixture={fixture}
+                    teamsById={teamsById}
+                    predictionMode={isPredictionMode}
+                    prediction={
+                      fixture.dbId
+                        ? predictionsByFixtureId.get(fixture.dbId)
+                        : undefined
+                    }
+                    draft={predictionDrafts[draftKey]}
+                    isMatchweekLocked={predictionLockInfo.isLocked}
+                    onPredictionChange={(side, value) =>
+                      updatePredictionDraft(draftKey, side, value)
+                    }
+                  />
+                )
+              })
             ) : (
               <EmptyState message="No fixtures match these filters." />
             )}
@@ -438,13 +825,24 @@ function StandingsTable({
 function FixtureCard({
   fixture,
   teamsById,
+  predictionMode = false,
+  prediction,
+  draft,
+  isMatchweekLocked = false,
+  onPredictionChange,
 }: {
   fixture: Fixture
   teamsById: Map<string, Team>
+  predictionMode?: boolean
+  prediction?: PredictionRow
+  draft?: PredictionDraft
+  isMatchweekLocked?: boolean
+  onPredictionChange?: (side: keyof PredictionDraft, value: string) => void
 }) {
   const homeTeam = teamsById.get(fixture.homeTeamId)
   const awayTeam = teamsById.get(fixture.awayTeamId)
   const kickoff = formatKickoff(fixture.kickoffUtc)
+  const displayPrediction = getFixturePredictionDisplay(fixture, prediction)
 
   return (
     <article className="overflow-hidden rounded-lg border border-[#DADADA] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
@@ -479,25 +877,141 @@ function FixtureCard({
 
         <div className="space-y-3 pt-1 text-sm">
           <Fact label="Status" value={fixture.status} />
-          <Fact
-            label="Scorers"
-            value={
-              fixture.scorers.length
-                ? fixture.scorers.join(', ')
-                : 'Available after full-time'
-            }
-          />
-          <Fact
-            label="Assists"
-            value={
-              fixture.assists.length
-                ? fixture.assists.join(', ')
-                : 'Available after full-time'
-            }
-          />
+          {predictionMode ? (
+            <PredictionPanel
+              fixture={fixture}
+              draft={draft}
+              prediction={prediction}
+              display={displayPrediction}
+              isLocked={isMatchweekLocked}
+              onChange={onPredictionChange}
+            />
+          ) : (
+            <>
+              <Fact
+                label="Scorers"
+                value={
+                  fixture.scorers.length
+                    ? fixture.scorers.join(', ')
+                    : 'Available after full-time'
+                }
+              />
+              <Fact
+                label="Assists"
+                value={
+                  fixture.assists.length
+                    ? fixture.assists.join(', ')
+                    : 'Available after full-time'
+                }
+              />
+            </>
+          )}
         </div>
       </div>
     </article>
+  )
+}
+
+function PredictionPanel({
+  fixture,
+  draft,
+  prediction,
+  display,
+  isLocked,
+  onChange,
+}: {
+  fixture: Fixture
+  draft?: PredictionDraft
+  prediction?: PredictionRow
+  display: ReturnType<typeof getFixturePredictionDisplay>
+  isLocked: boolean
+  onChange?: (side: keyof PredictionDraft, value: string) => void
+}) {
+  const hasActual = fixture.homeScore !== null && fixture.awayScore !== null
+  const predictionDisplay = getPredictionClosenessDisplay(display.closeness)
+
+  return (
+    <div className="rounded-lg border border-[#DADADA] p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase text-[#5f6664]">
+          Your prediction
+        </p>
+        {isLocked ? (
+          <span className="rounded-full bg-[#F45B5B]/10 px-2 py-1 text-xs font-bold text-[#8a2626]">
+            Predictions locked
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        <ScoreInput
+          label={`${fixture.homeTeamId} home score`}
+          value={draft?.home ?? ''}
+          disabled={isLocked || !onChange}
+          onChange={(value) => onChange?.('home', value)}
+        />
+        <span className="font-bold text-[#5f6664]">-</span>
+        <ScoreInput
+          label={`${fixture.awayTeamId} away score`}
+          value={draft?.away ?? ''}
+          disabled={isLocked || !onChange}
+          onChange={(value) => onChange?.('away', value)}
+        />
+      </div>
+
+      <div
+        className="mt-3 rounded-lg border border-white/70 px-3 py-2 text-sm"
+        style={{
+          backgroundColor: predictionDisplay.backgroundColor,
+          color: predictionDisplay.textColor,
+        }}
+      >
+        {hasActual ? (
+          <p>
+            <span className="font-bold">
+              Actual: {fixture.homeScore} - {fixture.awayScore}
+            </span>
+            <span className="mx-2 text-[#5f6664]">|</span>
+            <span>
+              Your prediction: {display.predictionText} ·{' '}
+              {predictionDisplay.label} · +{display.points} pts
+            </span>
+          </p>
+        ) : (
+          <p>
+            {prediction
+              ? `Saved: ${display.predictionText} · ${predictionDisplay.label}`
+              : 'Not scored'}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ScoreInput({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string
+  value: string
+  disabled: boolean
+  onChange: (value: string) => void
+}) {
+  return (
+    <label className="block">
+      <span className="sr-only">{label}</span>
+      <input
+        value={value}
+        inputMode="numeric"
+        maxLength={2}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-10 w-14 rounded-lg border border-[#DADADA] bg-white text-center text-base font-bold focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20 disabled:bg-[#F1F1F1] disabled:text-[#5f6664]"
+      />
+    </label>
   )
 }
 
@@ -672,6 +1186,91 @@ function scopeLeaders(leaders: Leader[], selectedClubId: string) {
 
 function leaderTitle(label: string, selectedClub?: Team) {
   return selectedClub ? `${label}: ${selectedClub.shortName}` : label
+}
+
+function getFixturePredictionDisplay(
+  fixture: Fixture,
+  prediction?: PredictionRow,
+) {
+  if (!prediction) {
+    return {
+      closeness: 'NOT_SCORED' as PredictionCloseness,
+      points: 0,
+      predictionText: '-',
+    }
+  }
+
+  const closeness =
+    prediction.closeness ??
+    getPredictionCloseness(
+      prediction.predicted_home_score,
+      prediction.predicted_away_score,
+      fixture.homeScore,
+      fixture.awayScore,
+    )
+
+  return {
+    closeness,
+    points: prediction.points ?? getPredictionPoints(closeness),
+    predictionText: `${prediction.predicted_home_score} - ${prediction.predicted_away_score}`,
+  }
+}
+
+function getPredictionDraftKey(fixture: Fixture) {
+  return fixture.dbId ?? `provider:${fixture.providerFixtureId ?? fixture.id}`
+}
+
+function getMatchweekLockInfo(fixtures: Fixture[]) {
+  if (fixtures.length === 0) {
+    return { isLocked: true, lockAt: null as Date | null }
+  }
+
+  const firstKickoff = Math.min(
+    ...fixtures.map((fixture) => new Date(fixture.kickoffUtc).getTime()),
+  )
+  const lockAt = new Date(firstKickoff - 24 * 60 * 60 * 1000)
+
+  return {
+    isLocked: Date.now() >= lockAt.getTime(),
+    lockAt,
+  }
+}
+
+function getDefaultPredictionMatchweek(fixtures: Fixture[]) {
+  const grouped = new Map<number, Fixture[]>()
+
+  for (const fixture of fixtures) {
+    grouped.set(fixture.matchweek, [
+      ...(grouped.get(fixture.matchweek) ?? []),
+      fixture,
+    ])
+  }
+
+  const weeks = Array.from(grouped.entries())
+    .map(([matchweek, weekFixtures]) => {
+      const firstKickoff = Math.min(
+        ...weekFixtures.map((fixture) => new Date(fixture.kickoffUtc).getTime()),
+      )
+      const lockAt = firstKickoff - 24 * 60 * 60 * 1000
+
+      return { matchweek, firstKickoff, lockAt }
+    })
+    .sort((first, second) => first.firstKickoff - second.firstKickoff)
+
+  const now = Date.now()
+  const nextUnlocked = weeks.find((week) => now < week.lockAt)
+
+  if (nextUnlocked) {
+    return nextUnlocked.matchweek
+  }
+
+  const nextNotStarted = weeks.find((week) => now < week.firstKickoff)
+
+  if (nextNotStarted) {
+    return nextNotStarted.matchweek
+  }
+
+  return weeks.at(-1)?.matchweek ?? 1
 }
 
 function formatKickoff(kickoffUtc: string) {

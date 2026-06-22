@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext.tsx'
 import './index.css'
 import App from './App.tsx'
 import { AdminPage } from './pages/AdminPage.tsx'
+import { ProfilePage } from './pages/ProfilePage.tsx'
 import { ResetPasswordPage } from './pages/ResetPasswordPage.tsx'
 
 createRoot(document.getElementById('root')!).render(
@@ -13,6 +14,7 @@ createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<App />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/admin-soodlabs" element={<AdminPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Routes>

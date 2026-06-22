@@ -8,6 +8,9 @@ export type Profile = {
   email: string
   role: ProfileRole
   is_disabled: boolean
+  favorite_club: string | null
+  avatar_url: string | null
+  avatar_path: string | null
   created_at: string
 }
 

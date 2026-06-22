@@ -20,6 +20,8 @@ export type Standing = {
 
 export type Fixture = {
   id: string
+  dbId?: string
+  providerFixtureId?: string
   matchweek: number
   kickoffUtc: string
   status: string
@@ -56,7 +58,7 @@ export type HomeData = {
   sources: string[]
 }
 
-const teams: Team[] = [
+export const premierLeagueTeams: Team[] = [
   {
     id: '1',
     name: 'Arsenal',
@@ -200,11 +202,11 @@ const teams: Team[] = [
 ]
 
 export const mockHomeData: HomeData = {
-  teams: teams.map((team) => ({
+  teams: premierLeagueTeams.map((team) => ({
     ...team,
     crestUrl: `/team-crests/${team.id}.png`,
   })),
-  standings: teams.map((team, index) => ({
+  standings: premierLeagueTeams.map((team, index) => ({
     teamId: team.id,
     position: index + 1,
     played: 0,
@@ -298,7 +300,13 @@ export const mockHomeData: HomeData = {
 }
 
 export async function fetchHomeData(): Promise<HomeData> {
-  const response = await fetch('/api/home-data?season=2026')
+  const params = new URLSearchParams({
+    season: '2026',
+    cacheBust: Date.now().toString(),
+  })
+  const response = await fetch(`/api/home-data?${params.toString()}`, {
+    cache: 'no-store',
+  })
 
   if (!response.ok) {
     throw new Error(`Home data request failed with ${response.status}`)

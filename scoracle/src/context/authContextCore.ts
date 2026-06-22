@@ -9,6 +9,7 @@ export type SignupInput = {
 
 export type AuthContextValue = AuthState & {
   isAdmin: boolean
+  checkUsernameAvailability: (username: string) => Promise<boolean>
   signUp: (input: SignupInput) => Promise<string>
   signIn: (email: string, password: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
@@ -16,6 +17,12 @@ export type AuthContextValue = AuthState & {
   resetPassword: (email: string) => Promise<void>
   updatePassword: (password: string) => Promise<void>
   updateUsername: (username: string) => Promise<void>
+  updateProfile: (input: {
+    username: string
+    favoriteClub: string | null
+    avatarUrl?: string | null
+    avatarPath?: string | null
+  }) => Promise<Profile>
   refreshProfile: () => Promise<Profile | null>
 }
 
