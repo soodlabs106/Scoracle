@@ -13,6 +13,10 @@ import {
 import { Header } from '../components/layout/Header'
 import { useAuth } from '../context/useAuth'
 import { fetchHomeData, mockHomeData, type Team } from '../data/homeData'
+import {
+  fetchMatchWeekLeaderboard,
+  fetchOverallLeaderboard,
+} from '../data/leaderboard'
 import { fetchSimulatedPredictionHistory } from '../data/predictionSimulation'
 import { supabase } from '../lib/supabaseClient'
 import type { PredictionRow } from '../types/predictions'
@@ -101,6 +105,8 @@ export function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false)
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [isHistoryLoading, setIsHistoryLoading] = useState(false)
+  const [overallRank, setOverallRank] = useState<number | null>(null)
+  const [matchweekRanks, setMatchweekRanks] = useState<Record<number, number>>({})
   const [selectedHistoryMatchweek, setSelectedHistoryMatchweek] = useState('all')
   const [deletingPredictionId, setDeletingPredictionId] = useState<string | null>(
     null,
@@ -354,6 +360,60 @@ export function ProfilePage() {
     [clubs, profile?.favorite_club],
   )
 
+  useEffect(() => {
+    if (!user || !profile) {
+      return
+    }
+
+    let isMounted = true
+    const currentUserId = user.id
+    const currentUsername = profile.username
+
+    async function loadRanks() {
+      try {
+        const overallRows = await fetchOverallLeaderboard()
+        const nextOverallRank = findCurrentUserRank(
+          overallRows,
+          currentUserId,
+          currentUsername,
+        )
+        const weeklyRankEntries = await Promise.all(
+          historyMatchweeks.map(async (matchweek) => {
+            const rows = await fetchMatchWeekLeaderboard(matchweek)
+            return [
+              matchweek,
+              findCurrentUserRank(rows, currentUserId, currentUsername),
+            ] as const
+          }),
+        )
+
+        if (!isMounted) {
+          return
+        }
+
+        setOverallRank(nextOverallRank)
+        setMatchweekRanks(
+          Object.fromEntries(
+            weeklyRankEntries.filter((entry): entry is readonly [number, number] =>
+              entry[1] !== null,
+            ),
+          ),
+        )
+      } catch {
+        if (isMounted) {
+          setOverallRank(null)
+          setMatchweekRanks({})
+        }
+      }
+    }
+
+    loadRanks()
+
+    return () => {
+      isMounted = false
+    }
+  }, [historyMatchweeks, profile, user])
+
   if (isLoading) {
     return (
       <main className="min-h-screen bg-[#F9F9F9] text-[#333333]">
@@ -576,6 +636,9 @@ export function ProfilePage() {
                   <p className="mt-1 text-sm font-semibold text-[#5f6664]">
                     {profile.email}
                   </p>
+                  <span className="mt-2 inline-flex rounded-full border border-[#3CC8A5]/40 bg-[#E4FAF3] px-3 py-1 text-xs font-bold text-[#02745d]">
+                    Overall Rank: {formatRank(overallRank)}
+                  </span>
                 </div>
               </div>
               {!isEditing ? (
@@ -768,9 +831,14 @@ export function ProfilePage() {
             <div className="mt-4 space-y-5">
               {groupedHistory.map(([matchWeek, items]) => (
                 <div key={matchWeek}>
-                  <h4 className="mb-2 text-sm font-bold uppercase text-[#03718a]">
-                    Match Week {matchWeek}
-                  </h4>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-bold uppercase text-[#03718a]">
+                      Match Week {matchWeek}
+                    </h4>
+                    <span className="text-sm font-bold text-[#333333]">
+                      Rank: {formatRank(matchweekRanks[matchWeek] ?? null)}
+                    </span>
+                  </div>
                   <div className="overflow-hidden rounded-lg border border-[#DADADA]">
                     <table className="w-full table-fixed text-left text-xs">
                       <thead className="bg-[#E8F4FA] text-xs uppercase text-[#5f6664]">
@@ -884,6 +952,25 @@ function formatActualResult(fixture?: FixtureHistoryRow) {
   return `${fixture.homeScore} - ${fixture.awayScore}`
 }
 
+function formatRank(rank: number | null) {
+  return rank === null ? '-' : rank.toString()
+}
+
+function findCurrentUserRank(
+  rows: Array<{ user_id: string; username: string }>,
+  userId: string,
+  username: string,
+) {
+  const normalizedUsername = normalizeProfileUsername(username)
+  const rankIndex = rows.findIndex(
+    (row) =>
+      row.user_id === userId ||
+      normalizeProfileUsername(row.username) === normalizedUsername,
+  )
+
+  return rankIndex === -1 ? null : rankIndex + 1
+}
+
 function FixtureLabel({ item }: { item: HistoryItem }) {
   const homeCode = item.homeTeamCode ?? getTeamCodeFallback(item.homeTeam)
   const awayCode = item.awayTeamCode ?? getTeamCodeFallback(item.awayTeam)
@@ -928,6 +1015,10 @@ function normalizeTeamName(teamName: string) {
     .toLowerCase()
     .replace(/&/g, 'and')
     .replace(/[^a-z0-9]+/g, '')
+}
+
+function normalizeProfileUsername(username: string) {
+  return username.toLowerCase().replace(/\s+/g, '')
 }
 
 function ClubMiniCrest({
