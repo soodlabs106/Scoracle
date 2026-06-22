@@ -55,15 +55,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       let profile = await fetchProfile(session.user.id)
 
-      // Always attempt to sync OAuth provider avatar
       const providerAvatar = getProviderAvatarUrl(session.user)
-      if (providerAvatar && (!profile?.avatar_url || profile.avatar_url !== providerAvatar)) {
+      const shouldSyncProviderAvatar =
+        providerAvatar &&
+        (!profile?.avatar_url ||
+          !profile.avatar_path ||
+          isProviderAvatarUrl(profile.avatar_url))
+
+      if (shouldSyncProviderAvatar) {
         try {
+          const cachedAvatar = await cacheProviderAvatar(
+            session.access_token,
+            providerAvatar,
+          )
+          const nextAvatarUrl = cachedAvatar?.avatarUrl ?? providerAvatar
+          const nextAvatarPath = cachedAvatar?.avatarPath ?? null
           const { data: updatedProfile, error: updateError } = await supabase
             .from('profiles')
             .update({
-              avatar_url: providerAvatar,
-              avatar_path: null,
+              avatar_url: nextAvatarUrl,
+              avatar_path: nextAvatarPath,
             })
             .eq('id', session.user.id)
             .select(
@@ -507,6 +518,55 @@ function getProviderAvatarUrl(user: NonNullable<AuthState['user']>) {
   }
 
   return null
+}
+
+async function cacheProviderAvatar(accessToken: string, avatarUrl: string) {
+  const response = await fetch('/api/cache-oauth-avatar', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ avatarUrl }),
+  })
+
+  if (!response.ok) {
+    return null
+  }
+
+  const data = (await response.json()) as {
+    avatarUrl?: unknown
+    avatarPath?: unknown
+  }
+
+  if (typeof data.avatarUrl !== 'string' || !data.avatarUrl.trim()) {
+    return null
+  }
+
+  return {
+    avatarUrl: data.avatarUrl.trim(),
+    avatarPath:
+      typeof data.avatarPath === 'string' && data.avatarPath.trim()
+        ? data.avatarPath.trim()
+        : null,
+  }
+}
+
+function isProviderAvatarUrl(avatarUrl: string | null | undefined) {
+  if (!avatarUrl) {
+    return false
+  }
+
+  try {
+    const host = new URL(avatarUrl).hostname.toLowerCase()
+    return (
+      host.includes('googleusercontent.com') ||
+      host.includes('google.com') ||
+      host.includes('githubusercontent.com')
+    )
+  } catch {
+    return false
+  }
 }
 
 function getAvatarUrlFromMetadata(

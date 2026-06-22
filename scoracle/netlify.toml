@@ -10,3 +10,8 @@
   from = "/api/home-data"
   to = "/.netlify/functions/home-data"
   status = 200
+
+[[redirects]]
+  from = "/api/cache-oauth-avatar"
+  to = "/.netlify/functions/cache-oauth-avatar"
+  status = 200
