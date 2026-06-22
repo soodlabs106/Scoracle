@@ -7,6 +7,7 @@ import {
   LockKeyhole,
   Save,
   ShieldCheck,
+  Trash2,
   Trophy,
   UserRound,
 } from 'lucide-react'
@@ -73,6 +74,9 @@ function App() {
   const [dirtyFixtureIds, setDirtyFixtureIds] = useState<Set<string>>(new Set())
   const [isPredictionsLoading, setIsPredictionsLoading] = useState(false)
   const [isSavingPredictions, setIsSavingPredictions] = useState(false)
+  const [deletingPredictionId, setDeletingPredictionId] = useState<string | null>(
+    null,
+  )
   const [predictionMessage, setPredictionMessage] = useState<{
     tone: PredictionMessageTone
     text: string
@@ -454,6 +458,64 @@ function App() {
     }
   }
 
+  async function deletePrediction(fixture: Fixture, prediction?: PredictionRow) {
+    if (!prediction) {
+      return
+    }
+
+    if (predictionLockInfo.isLocked) {
+      setPredictionMessage({
+        tone: 'error',
+        text: 'Predictions locked for this match week.',
+      })
+      return
+    }
+
+    setDeletingPredictionId(prediction.id)
+    setPredictionMessage(null)
+
+    try {
+      const { error } = await supabase
+        .from('predictions')
+        .delete()
+        .eq('id', prediction.id)
+
+      if (error) {
+        throw error
+      }
+
+      const draftKey = getPredictionDraftKey(fixture)
+      setPredictionsByFixtureId((current) => {
+        const next = new Map(current)
+        next.delete(prediction.fixture_id)
+        return next
+      })
+      setPredictionDrafts((current) => ({
+        ...current,
+        [draftKey]: { home: '', away: '' },
+      }))
+      setDirtyFixtureIds((current) => {
+        const next = new Set(current)
+        next.delete(draftKey)
+        return next
+      })
+      setPredictionMessage({
+        tone: 'success',
+        text: 'Prediction deleted.',
+      })
+    } catch (error) {
+      setPredictionMessage({
+        tone: 'error',
+        text:
+          error instanceof Error
+            ? error.message
+            : 'Could not delete prediction.',
+      })
+    } finally {
+      setDeletingPredictionId(null)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#F9F9F9] text-[#333333]">
       <Header
@@ -609,8 +671,12 @@ function App() {
                     }
                     draft={predictionDrafts[draftKey]}
                     isMatchweekLocked={predictionLockInfo.isLocked}
+                    deletingPredictionId={deletingPredictionId}
                     onPredictionChange={(side, value) =>
                       updatePredictionDraft(draftKey, side, value)
+                    }
+                    onDeletePrediction={(prediction) =>
+                      deletePrediction(fixture, prediction)
                     }
                   />
                 )
@@ -829,7 +895,9 @@ function FixtureCard({
   prediction,
   draft,
   isMatchweekLocked = false,
+  deletingPredictionId,
   onPredictionChange,
+  onDeletePrediction,
 }: {
   fixture: Fixture
   teamsById: Map<string, Team>
@@ -837,7 +905,9 @@ function FixtureCard({
   prediction?: PredictionRow
   draft?: PredictionDraft
   isMatchweekLocked?: boolean
+  deletingPredictionId?: string | null
   onPredictionChange?: (side: keyof PredictionDraft, value: string) => void
+  onDeletePrediction?: (prediction: PredictionRow) => void
 }) {
   const homeTeam = teamsById.get(fixture.homeTeamId)
   const awayTeam = teamsById.get(fixture.awayTeamId)
@@ -884,7 +954,9 @@ function FixtureCard({
               prediction={prediction}
               display={displayPrediction}
               isLocked={isMatchweekLocked}
+              isDeleting={deletingPredictionId === prediction?.id}
               onChange={onPredictionChange}
+              onDelete={onDeletePrediction}
             />
           ) : (
             <>
@@ -918,24 +990,43 @@ function PredictionPanel({
   prediction,
   display,
   isLocked,
+  isDeleting,
   onChange,
+  onDelete,
 }: {
   fixture: Fixture
   draft?: PredictionDraft
   prediction?: PredictionRow
   display: ReturnType<typeof getFixturePredictionDisplay>
   isLocked: boolean
+  isDeleting: boolean
   onChange?: (side: keyof PredictionDraft, value: string) => void
+  onDelete?: (prediction: PredictionRow) => void
 }) {
   const hasActual = fixture.homeScore !== null && fixture.awayScore !== null
+  const isSavedNotScored = Boolean(prediction && !hasActual)
   const predictionDisplay = getPredictionClosenessDisplay(display.closeness)
 
   return (
     <div className="rounded-lg border border-[#DADADA] p-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase text-[#5f6664]">
-          Your prediction
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-semibold uppercase text-[#5f6664]">
+            Your prediction
+          </p>
+          {prediction && !isLocked ? (
+            <button
+              type="button"
+              onClick={() => onDelete?.(prediction)}
+              disabled={isDeleting}
+              className="inline-flex items-center justify-center text-[#8a2626] transition hover:text-[#F45B5B] disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Delete saved prediction"
+              title="Delete saved prediction"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          ) : null}
+        </div>
         {isLocked ? (
           <span className="rounded-full bg-[#F45B5B]/10 px-2 py-1 text-xs font-bold text-[#8a2626]">
             Predictions locked
@@ -948,6 +1039,7 @@ function PredictionPanel({
           label={`${fixture.homeTeamId} home score`}
           value={draft?.home ?? ''}
           disabled={isLocked || !onChange}
+          isPendingSaved={isSavedNotScored}
           onChange={(value) => onChange?.('home', value)}
         />
         <span className="font-bold text-[#5f6664]">-</span>
@@ -955,18 +1047,19 @@ function PredictionPanel({
           label={`${fixture.awayTeamId} away score`}
           value={draft?.away ?? ''}
           disabled={isLocked || !onChange}
+          isPendingSaved={isSavedNotScored}
           onChange={(value) => onChange?.('away', value)}
         />
       </div>
 
-      <div
-        className="mt-3 rounded-lg border border-white/70 px-3 py-2 text-sm"
-        style={{
-          backgroundColor: predictionDisplay.backgroundColor,
-          color: predictionDisplay.textColor,
-        }}
-      >
-        {hasActual ? (
+      {hasActual ? (
+        <div
+          className="mt-3 rounded-lg border border-white/70 px-3 py-2 text-sm"
+          style={{
+            backgroundColor: predictionDisplay.backgroundColor,
+            color: predictionDisplay.textColor,
+          }}
+        >
           <p>
             <span className="font-bold">
               Actual: {fixture.homeScore} - {fixture.awayScore}
@@ -977,14 +1070,8 @@ function PredictionPanel({
               {predictionDisplay.label} · +{display.points} pts
             </span>
           </p>
-        ) : (
-          <p>
-            {prediction
-              ? `Saved: ${display.predictionText} · ${predictionDisplay.label}`
-              : 'Not scored'}
-          </p>
-        )}
-      </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -993,11 +1080,13 @@ function ScoreInput({
   label,
   value,
   disabled,
+  isPendingSaved = false,
   onChange,
 }: {
   label: string
   value: string
   disabled: boolean
+  isPendingSaved?: boolean
   onChange: (value: string) => void
 }) {
   return (
@@ -1009,7 +1098,9 @@ function ScoreInput({
         maxLength={2}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-14 rounded-lg border border-[#DADADA] bg-white text-center text-base font-bold focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20 disabled:bg-[#F1F1F1] disabled:text-[#5f6664]"
+        className={`h-10 w-14 rounded-lg border bg-white text-center text-base font-bold focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20 disabled:bg-[#F1F1F1] disabled:text-[#5f6664] ${
+          isPendingSaved ? 'border-[#F59E0B]' : 'border-[#DADADA]'
+        }`}
       />
     </label>
   )

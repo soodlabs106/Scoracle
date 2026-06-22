@@ -12,6 +12,8 @@ type SignupModalProps = {
 export function SignupModal({ onClose, onSwitchToLogin }: SignupModalProps) {
   const { checkUsernameAvailability, signUp } = useAuth()
   const [email, setEmail] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [repeatPassword, setRepeatPassword] = useState('')
@@ -27,11 +29,15 @@ export function SignupModal({ onClose, onSwitchToLogin }: SignupModalProps) {
     [password],
   )
   const trimmedUsername = username.trim()
+  const trimmedFirstName = firstName.trim()
+  const trimmedLastName = lastName.trim()
   const usernameHasOnlyWhitespace =
     username.length > 0 && trimmedUsername.length === 0
   const passwordsMatch = password === repeatPassword
   const canSubmit =
     isValidEmail(email) &&
+    trimmedFirstName.length > 0 &&
+    trimmedLastName.length > 0 &&
     usernameStatus === 'available' &&
     passwordValidation.isValid &&
     passwordsMatch
@@ -81,7 +87,13 @@ export function SignupModal({ onClose, onSwitchToLogin }: SignupModalProps) {
     setServerMessage(null)
 
     try {
-      const message = await signUp({ email, username, password })
+      const message = await signUp({
+        email,
+        firstName,
+        lastName,
+        username,
+        password,
+      })
       setServerTone('success')
       setServerMessage(message)
     } catch (error) {
@@ -116,6 +128,46 @@ export function SignupModal({ onClose, onSwitchToLogin }: SignupModalProps) {
             }
           />
         </label>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block text-sm font-semibold text-[#333333]">
+            First name
+            <input
+              value={firstName}
+              onChange={(event) => setFirstName(event.target.value)}
+              type="text"
+              autoComplete="given-name"
+              className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] px-3 text-base focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+              required
+            />
+            <FieldError
+              message={
+                firstName && !trimmedFirstName
+                  ? 'First name is required.'
+                  : undefined
+              }
+            />
+          </label>
+
+          <label className="block text-sm font-semibold text-[#333333]">
+            Last name
+            <input
+              value={lastName}
+              onChange={(event) => setLastName(event.target.value)}
+              type="text"
+              autoComplete="family-name"
+              className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] px-3 text-base focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+              required
+            />
+            <FieldError
+              message={
+                lastName && !trimmedLastName
+                  ? 'Last name is required.'
+                  : undefined
+              }
+            />
+          </label>
+        </div>
 
         <label className="block text-sm font-semibold text-[#333333]">
           Username

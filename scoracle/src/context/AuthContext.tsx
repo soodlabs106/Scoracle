@@ -13,6 +13,8 @@ import {
   type SignupInput,
 } from './authContextCore'
 
+const INACTIVITY_LIMIT_MS = 5 * 60 * 1000
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     session: null,
@@ -26,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase
       .from('profiles')
       .select(
-        'id, username, email, role, is_disabled, favorite_club, avatar_url, avatar_path, created_at',
+        'id, username, email, first_name, last_name, role, is_disabled, favorite_club, avatar_url, avatar_path, created_at',
       )
       .eq('id', userId)
       .maybeSingle()
@@ -130,9 +132,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return Boolean(isAvailable)
   }, [])
 
-  const signUp = useCallback(async ({ email, username, password }: SignupInput) => {
+  const signUp = useCallback(async ({ email, firstName, lastName, username, password }: SignupInput) => {
     const trimmedUsername = username.trim()
     const normalizedEmail = email.trim().toLowerCase()
+    const trimmedFirstName = firstName.trim()
+    const trimmedLastName = lastName.trim()
+
+    if (!trimmedFirstName || !trimmedLastName) {
+      throw new Error('First name and last name are required.')
+    }
 
     const isAvailable = await checkUsernameAvailability(trimmedUsername)
 
@@ -145,6 +153,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
       options: {
         data: {
+          first_name: trimmedFirstName,
+          last_name: trimmedLastName,
           username: trimmedUsername,
         },
         emailRedirectTo: `${window.location.origin}/`,
@@ -211,6 +221,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       message: null,
     })
   }, [])
+
+  useEffect(() => {
+    if (!state.user) {
+      return
+    }
+
+    let timeoutId = window.setTimeout(handleInactive, INACTIVITY_LIMIT_MS)
+    const activityEvents = ['pointerdown', 'keydown', 'scroll', 'touchstart']
+
+    function resetTimer() {
+      window.clearTimeout(timeoutId)
+      timeoutId = window.setTimeout(handleInactive, INACTIVITY_LIMIT_MS)
+    }
+
+    async function handleInactive() {
+      try {
+        await supabase.auth.signOut()
+      } finally {
+        setState({
+          session: null,
+          user: null,
+          profile: null,
+          isLoading: false,
+          message: 'Signed out after 5 minutes of inactivity.',
+        })
+      }
+    }
+
+    for (const eventName of activityEvents) {
+      window.addEventListener(eventName, resetTimer, { passive: true })
+    }
+
+    return () => {
+      window.clearTimeout(timeoutId)
+      for (const eventName of activityEvents) {
+        window.removeEventListener(eventName, resetTimer)
+      }
+    }
+  }, [state.user])
 
   const resetPassword = useCallback(async (email: string) => {
     const normalizedEmail = email.trim().toLowerCase()
@@ -307,7 +356,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
         .eq('id', state.user.id)
         .select(
-          'id, username, email, role, is_disabled, favorite_club, avatar_url, avatar_path, created_at',
+          'id, username, email, first_name, last_name, role, is_disabled, favorite_club, avatar_url, avatar_path, created_at',
         )
         .single()
 

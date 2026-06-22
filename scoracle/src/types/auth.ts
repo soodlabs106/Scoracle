@@ -6,6 +6,8 @@ export type Profile = {
   id: string
   username: string
   email: string
+  first_name: string | null
+  last_name: string | null
   role: ProfileRole
   is_disabled: boolean
   favorite_club: string | null

@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, Navigate } from 'react-router'
-import { ArrowLeft, Camera, Pencil, Save, UserRound, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  Camera,
+  Pencil,
+  Save,
+  Trash2,
+  UserRound,
+  X,
+} from 'lucide-react'
 import { Header } from '../components/layout/Header'
 import { useAuth } from '../context/useAuth'
 import { fetchHomeData, mockHomeData, type Team } from '../data/homeData'
@@ -37,6 +45,7 @@ type HistoryItem = {
   fixture?: FixtureHistoryRow
   homeTeam?: string
   awayTeam?: string
+  matchweekLockAt?: string
 }
 
 export function ProfilePage() {
@@ -59,6 +68,10 @@ export function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false)
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [isHistoryLoading, setIsHistoryLoading] = useState(false)
+  const [selectedHistoryMatchweek, setSelectedHistoryMatchweek] = useState('all')
+  const [deletingPredictionId, setDeletingPredictionId] = useState<string | null>(
+    null,
+  )
 
   useEffect(() => {
     if (profile) {
@@ -120,9 +133,11 @@ export function ProfilePage() {
         }
 
         const predictions = (predictionRows ?? []) as PredictionRow[]
-        const fixtureIds = predictions.map((prediction) => prediction.fixture_id)
+        const predictionWeeks = Array.from(
+          new Set(predictions.map((prediction) => prediction.match_week)),
+        )
 
-        if (fixtureIds.length === 0) {
+        if (predictionWeeks.length === 0) {
           if (isMounted) {
             setHistory([])
           }
@@ -134,7 +149,7 @@ export function ProfilePage() {
           .select(
             'id, matchweek, kickoff_utc, home_score, away_score, home_team_id, away_team_id',
           )
-          .in('id', fixtureIds)
+          .in('matchweek', predictionWeeks)
 
         if (fixtureError) {
           throw fixtureError
@@ -150,6 +165,17 @@ export function ProfilePage() {
           awayTeamId: fixture.away_team_id,
         })) as FixtureHistoryRow[]
         const fixturesById = new Map(fixtures.map((fixture) => [fixture.id, fixture]))
+        const lockByMatchweek = new Map<number, string>()
+        for (const fixture of fixtures) {
+          const currentLock = lockByMatchweek.get(fixture.matchweek)
+          if (
+            !currentLock ||
+            new Date(fixture.kickoffUtc).getTime() <
+              new Date(currentLock).getTime()
+          ) {
+            lockByMatchweek.set(fixture.matchweek, fixture.kickoffUtc)
+          }
+        }
         const teamIds = Array.from(
           new Set(
             fixtures.flatMap((fixture) => [
@@ -183,6 +209,7 @@ export function ProfilePage() {
               fixture,
               homeTeam: fixture ? teamsById.get(fixture.homeTeamId) : undefined,
               awayTeam: fixture ? teamsById.get(fixture.awayTeamId) : undefined,
+              matchweekLockAt: lockByMatchweek.get(prediction.match_week),
             }
           })
           .sort((first, second) => {
@@ -224,17 +251,34 @@ export function ProfilePage() {
     }
   }, [user])
 
+  const historyMatchweeks = useMemo(
+    () =>
+      Array.from(new Set(history.map((item) => item.prediction.match_week))).sort(
+        (first, second) => second - first,
+      ),
+    [history],
+  )
+  const visibleHistory = useMemo(
+    () =>
+      selectedHistoryMatchweek === 'all'
+        ? history
+        : history.filter(
+            (item) =>
+              item.prediction.match_week.toString() === selectedHistoryMatchweek,
+          ),
+    [history, selectedHistoryMatchweek],
+  )
   const groupedHistory = useMemo(() => {
     const groups = new Map<number, HistoryItem[]>()
 
-    for (const item of history) {
+    for (const item of visibleHistory) {
       const rows = groups.get(item.prediction.match_week) ?? []
       rows.push(item)
       groups.set(item.prediction.match_week, rows)
     }
 
     return Array.from(groups.entries()).sort(([first], [second]) => second - first)
-  }, [history])
+  }, [visibleHistory])
   const favoriteTeam = useMemo(
     () => clubs.find((club) => club.name === profile?.favorite_club),
     [clubs, profile?.favorite_club],
@@ -364,6 +408,51 @@ export function ProfilePage() {
     setAvatarUrl(URL.createObjectURL(file))
   }
 
+  async function handleDeletePrediction(item: HistoryItem) {
+    if (isMatchweekLocked(item.prediction.match_week, history)) {
+      setError('Predictions are locked for that match week.')
+      return
+    }
+
+    const shouldDelete = window.confirm(
+      'Delete this saved prediction? You can enter it again while the match week is open.',
+    )
+
+    if (!shouldDelete) {
+      return
+    }
+
+    setDeletingPredictionId(item.prediction.id)
+    setError(null)
+    setMessage(null)
+
+    try {
+      const { error: deleteError } = await supabase
+        .from('predictions')
+        .delete()
+        .eq('id', item.prediction.id)
+
+      if (deleteError) {
+        throw deleteError
+      }
+
+      setHistory((current) =>
+        current.filter(
+          (historyItem) => historyItem.prediction.id !== item.prediction.id,
+        ),
+      )
+      setMessage('Prediction deleted.')
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Could not delete prediction.',
+      )
+    } finally {
+      setDeletingPredictionId(null)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#F9F9F9] text-[#333333]">
       <Header onLogin={() => undefined} onSignup={() => undefined} />
@@ -425,6 +514,14 @@ export function ProfilePage() {
               <div className="mt-5 space-y-3">
                 <ProfileValue label="Username" value={profile.username} />
                 <ProfileValue label="Email ID" value={profile.email} />
+                <ProfileValue
+                  label="First name"
+                  value={profile.first_name ?? 'Not set'}
+                />
+                <ProfileValue
+                  label="Last name"
+                  value={profile.last_name ?? 'Not set'}
+                />
                 <div className="rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 py-3">
                   <p className="text-xs font-semibold uppercase text-[#5f6664]">
                     Favorite club
@@ -470,6 +567,19 @@ export function ProfilePage() {
                     Spaces and casing are ignored when checking uniqueness.
                   </span>
                 </label>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <ReadOnlyField
+                    label="First name"
+                    value={profile.first_name ?? 'Not set'}
+                  />
+                  <ReadOnlyField
+                    label="Last name"
+                    value={profile.last_name ?? 'Not set'}
+                  />
+                </div>
+
+                <ReadOnlyField label="Email ID" value={profile.email} />
 
                 <label className="mt-4 block text-sm font-semibold text-[#333333]">
                   Favorite club
@@ -531,6 +641,23 @@ export function ProfilePage() {
                   Grouped by match week with scored results when available.
                 </p>
               </div>
+              <label className="grid gap-1 text-xs font-semibold uppercase text-[#5f6664]">
+                Match week
+                <select
+                  value={selectedHistoryMatchweek}
+                  onChange={(event) =>
+                    setSelectedHistoryMatchweek(event.target.value)
+                  }
+                  className="h-10 rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 text-sm font-semibold normal-case text-[#333333] focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+                >
+                  <option value="all">All match weeks</option>
+                  {historyMatchweeks.map((matchweek) => (
+                    <option key={matchweek} value={matchweek}>
+                      MW {matchweek}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
 
             {isHistoryLoading ? (
@@ -561,6 +688,7 @@ export function ProfilePage() {
                           <th className="px-3 py-2">Actual result</th>
                           <th className="px-3 py-2">Call quality</th>
                           <th className="px-3 py-2 text-right">Points</th>
+                          <th className="px-3 py-2 text-right">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#DADADA]">
@@ -569,6 +697,11 @@ export function ProfilePage() {
                             item.prediction.closeness ?? 'NOT_SCORED'
                           const display = getPredictionClosenessDisplay(
                             closeness as PredictionCloseness,
+                          )
+                          const isPendingResult = !hasActualResult(item.fixture)
+                          const isLocked = isMatchweekLocked(
+                            item.prediction.match_week,
+                            history,
                           )
 
                           return (
@@ -581,25 +714,62 @@ export function ProfilePage() {
                                 {item.awayTeam ?? 'Away'}
                               </td>
                               <td className="px-3 py-3">
-                                {item.prediction.predicted_home_score} -{' '}
-                                {item.prediction.predicted_away_score}
+                                <span
+                                  className={`inline-flex rounded-lg border px-2 py-1 font-bold ${
+                                    isPendingResult
+                                      ? 'border-[#F59E0B]'
+                                      : 'border-transparent'
+                                  }`}
+                                >
+                                  {item.prediction.predicted_home_score} -{' '}
+                                  {item.prediction.predicted_away_score}
+                                </span>
                               </td>
                               <td className="px-3 py-3">
                                 {formatActualResult(item.fixture)}
                               </td>
                               <td className="px-3 py-3">
-                                <span
-                                  className="rounded-full px-2 py-1 text-xs font-bold"
-                                  style={{
-                                    backgroundColor: display.backgroundColor,
-                                    color: display.textColor,
-                                  }}
-                                >
-                                  {display.label}
-                                </span>
+                                {isPendingResult ? (
+                                  <span className="rounded-full border border-[#F59E0B] bg-white px-2 py-1 text-xs font-bold text-[#8a5a00]">
+                                    TBP
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="rounded-full px-2 py-1 text-xs font-bold"
+                                    style={{
+                                      backgroundColor: display.backgroundColor,
+                                      color: display.textColor,
+                                    }}
+                                  >
+                                    {display.label}
+                                  </span>
+                                )}
                               </td>
                               <td className="px-3 py-3 text-right font-bold">
                                 {item.prediction.points}
+                              </td>
+                              <td className="px-3 py-3 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePrediction(item)}
+                                  disabled={
+                                    isLocked ||
+                                    deletingPredictionId === item.prediction.id
+                                  }
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#F45B5B]/45 text-[#8a2626] transition hover:bg-[#F45B5B]/10 disabled:cursor-not-allowed disabled:border-[#DADADA] disabled:text-[#5f6664]"
+                                  aria-label={
+                                    isLocked
+                                      ? 'Prediction locked'
+                                      : 'Delete prediction'
+                                  }
+                                  title={
+                                    isLocked
+                                      ? 'Predictions locked'
+                                      : 'Delete prediction'
+                                  }
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
                               </td>
                             </tr>
                           )
@@ -618,15 +788,24 @@ export function ProfilePage() {
 }
 
 function formatActualResult(fixture?: FixtureHistoryRow) {
-  if (
-    !fixture ||
-    fixture.homeScore === null ||
-    fixture.awayScore === null
-  ) {
+  if (!hasActualResult(fixture)) {
     return 'Pending'
   }
 
   return `${fixture.homeScore} - ${fixture.awayScore}`
+}
+
+function hasActualResult(
+  fixture?: FixtureHistoryRow,
+): fixture is FixtureHistoryRow & {
+  homeScore: number
+  awayScore: number
+} {
+  return Boolean(
+    fixture &&
+      fixture.homeScore !== null &&
+      fixture.awayScore !== null,
+  )
 }
 
 function AvatarPreview({
@@ -680,6 +859,35 @@ function ProfileValue({ label, value }: { label: string; value: string }) {
       </p>
     </div>
   )
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
+  return (
+    <label className="block text-sm font-semibold text-[#333333]">
+      {label}
+      <input
+        value={value}
+        readOnly
+        className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] bg-[#F1F1F1] px-3 text-base font-semibold text-[#5f6664]"
+      />
+    </label>
+  )
+}
+
+function isMatchweekLocked(matchweek: number, history: HistoryItem[]) {
+  const lockSource = history.find(
+    (item) =>
+      item.prediction.match_week === matchweek && Boolean(item.matchweekLockAt),
+  )?.matchweekLockAt
+
+  if (!lockSource) {
+    return true
+  }
+
+  const firstKickoff = new Date(lockSource).getTime()
+  const lockAt = firstKickoff - 24 * 60 * 60 * 1000
+
+  return Date.now() >= lockAt
 }
 
 async function prepareAvatarUpload(file: File) {

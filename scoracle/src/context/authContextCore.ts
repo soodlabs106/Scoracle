@@ -3,6 +3,8 @@ import type { AuthState, Profile } from '../types/auth'
 
 export type SignupInput = {
   email: string
+  firstName: string
+  lastName: string
   username: string
   password: string
 }

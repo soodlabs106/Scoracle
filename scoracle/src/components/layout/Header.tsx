@@ -1,7 +1,6 @@
 import { Link } from 'react-router'
-import { Sparkles, UserRound } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { useAuth } from '../../context/useAuth'
-import { useState } from 'react'
 
 type HeaderProps = {
   onLogin: () => void
@@ -9,37 +8,10 @@ type HeaderProps = {
 }
 
 export function Header({ onLogin, onSignup }: HeaderProps) {
-  const { profile, isAdmin, isLoading, message, signOut, updateUsername } =
-    useAuth()
-  const [isEditingUsername, setIsEditingUsername] = useState(false)
-  const [usernameDraft, setUsernameDraft] = useState('')
-  const [usernameError, setUsernameError] = useState<string | null>(null)
-  const [isSavingUsername, setIsSavingUsername] = useState(false)
+  const { profile, isAdmin, isLoading, message, signOut } = useAuth()
 
   async function handleSignOut() {
     await signOut()
-  }
-
-  function startUsernameEdit() {
-    setUsernameDraft(profile?.username ?? '')
-    setUsernameError(null)
-    setIsEditingUsername(true)
-  }
-
-  async function saveUsername() {
-    setIsSavingUsername(true)
-    setUsernameError(null)
-
-    try {
-      await updateUsername(usernameDraft)
-      setIsEditingUsername(false)
-    } catch (error) {
-      setUsernameError(
-        error instanceof Error ? error.message : 'Could not update username.',
-      )
-    } finally {
-      setIsSavingUsername(false)
-    }
   }
 
   return (
@@ -89,54 +61,16 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
                   Admin
                 </Link>
               ) : null}
-              {isEditingUsername ? (
-                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#DADADA] bg-white p-2">
-                  <label className="sr-only" htmlFor="header-username">
-                    Username
-                  </label>
-                  <input
-                    id="header-username"
-                    value={usernameDraft}
-                    onChange={(event) => setUsernameDraft(event.target.value)}
-                    className="h-9 w-40 rounded-lg border border-[#DADADA] px-2 text-sm font-semibold focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
-                  />
-                  <button
-                    type="button"
-                    onClick={saveUsername}
-                    disabled={isSavingUsername}
-                    className="rounded-lg bg-[#3CC8A5] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                  >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingUsername(false)}
-                    className="rounded-lg border border-[#DADADA] px-3 py-2 text-sm font-semibold"
-                  >
-                    Cancel
-                  </button>
-                  {usernameError ? (
-                    <p className="basis-full text-sm font-semibold text-[#F45B5B]">
-                      {usernameError}
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={startUsernameEdit}
-                  className="rounded-full bg-[#E8F4FA] px-3 py-2 text-sm font-semibold text-[#333333] transition hover:bg-[#DADADA]/60"
-                  title="Edit username"
-                >
-                  {profile.username}
-                </button>
-              )}
               <Link
                 to="/profile"
-                aria-label="Open profile"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#DADADA] bg-white text-[#3CC8A5] transition hover:bg-[#E8F4FA]"
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-[#DADADA] bg-[#E8F4FA] py-1 pl-1 pr-3 text-sm font-semibold text-[#333333] transition hover:bg-[#DADADA]/60"
+                title="Open profile"
               >
-                <UserRound className="h-5 w-5" />
+                <HeaderAvatar
+                  avatarUrl={profile.avatar_url}
+                  username={profile.username}
+                />
+                <span className="max-w-44 truncate">{profile.username}</span>
               </Link>
               <button
                 type="button"
@@ -170,4 +104,37 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
       </div>
     </header>
   )
+}
+
+function HeaderAvatar({
+  avatarUrl,
+  username,
+}: {
+  avatarUrl: string | null
+  username: string
+}) {
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt=""
+        className="h-9 w-9 shrink-0 rounded-full border border-white object-cover"
+      />
+    )
+  }
+
+  return (
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white bg-[#3CC8A5]/20 text-xs font-bold text-[#02745d]">
+      {initials(username)}
+    </span>
+  )
+}
+
+function initials(value: string) {
+  return value
+    .split(/\s+/)
+    .map((word) => word[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 }
