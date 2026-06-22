@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 supabase/.temp/
+public/local-leaderboard-simulation.json
+public/local-leaderboard-simulation.md
+public/local-prediction-simulation.json
+public/simulation-avatars/
 
 # Editor directories and files
 .vscode/*

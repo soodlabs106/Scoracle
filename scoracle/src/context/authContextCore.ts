@@ -21,6 +21,8 @@ export type AuthContextValue = AuthState & {
   updateUsername: (username: string) => Promise<void>
   updateProfile: (input: {
     username: string
+    firstName?: string | null
+    lastName?: string | null
     favoriteClub: string | null
     avatarUrl?: string | null
     avatarPath?: string | null

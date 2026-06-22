@@ -53,7 +53,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null
       }
 
-      const profile = await fetchProfile(session.user.id)
+      let profile = await fetchProfile(session.user.id)
+
+      if (profile && !profile.avatar_url) {
+        const providerAvatar = getProviderAvatarUrl(session.user.user_metadata)
+
+        if (providerAvatar) {
+          const { data: updatedProfile } = await supabase
+            .from('profiles')
+            .update({
+              avatar_url: providerAvatar,
+              avatar_path: null,
+            })
+            .eq('id', session.user.id)
+            .select(
+              'id, username, email, first_name, last_name, role, is_disabled, favorite_club, avatar_url, avatar_path, created_at',
+            )
+            .maybeSingle()
+
+          profile = (updatedProfile as Profile | null) ?? profile
+        }
+      }
 
       if (profile?.is_disabled) {
         await supabase.auth.signOut()
@@ -299,11 +319,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfile = useCallback(
     async ({
       username,
+      firstName,
+      lastName,
       favoriteClub,
       avatarUrl,
       avatarPath,
     }: {
       username: string
+      firstName?: string | null
+      lastName?: string | null
       favoriteClub: string | null
       avatarUrl?: string | null
       avatarPath?: string | null
@@ -317,6 +341,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const trimmedUsername = username.trim()
+      const trimmedFirstName =
+        firstName === undefined
+          ? state.profile.first_name
+          : (firstName ?? '').trim()
+      const trimmedLastName =
+        lastName === undefined ? state.profile.last_name : (lastName ?? '').trim()
       const trimmedFavoriteClub = favoriteClub?.trim() || null
       const nextAvatarUrl =
         avatarUrl === undefined ? state.profile.avatar_url : avatarUrl
@@ -327,14 +357,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('Username is required.')
       }
 
+      if (!trimmedFirstName || !trimmedLastName) {
+        throw new Error('First name and last name are required.')
+      }
+
       const usernameChanged = trimmedUsername !== state.profile?.username
+      const firstNameChanged =
+        trimmedFirstName !== (state.profile?.first_name ?? null)
+      const lastNameChanged =
+        trimmedLastName !== (state.profile?.last_name ?? null)
       const favoriteClubChanged =
         trimmedFavoriteClub !== (state.profile?.favorite_club ?? null)
       const avatarChanged =
         nextAvatarUrl !== (state.profile.avatar_url ?? null) ||
         nextAvatarPath !== (state.profile.avatar_path ?? null)
 
-      if (!usernameChanged && !favoriteClubChanged && !avatarChanged) {
+      if (
+        !usernameChanged &&
+        !firstNameChanged &&
+        !lastNameChanged &&
+        !favoriteClubChanged &&
+        !avatarChanged
+      ) {
         return state.profile
       }
 
@@ -350,6 +394,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('profiles')
         .update({
           username: trimmedUsername,
+          first_name: trimmedFirstName,
+          last_name: trimmedLastName,
           favorite_club: trimmedFavoriteClub,
           avatar_url: nextAvatarUrl,
           avatar_path: nextAvatarPath,
@@ -362,6 +408,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         throw new Error(error.message)
+      }
+
+      if (avatarChanged) {
+        const { error: authUpdateError } = await supabase.auth.updateUser({
+          data: {
+            avatar_url: nextAvatarUrl,
+            picture: nextAvatarUrl,
+          },
+        })
+
+        if (authUpdateError) {
+          throw new Error(toFriendlyAuthError(authUpdateError.message))
+        }
       }
 
       setState((current) => ({
@@ -426,6 +485,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+function getProviderAvatarUrl(metadata: Record<string, unknown> | null | undefined) {
+  const avatarUrl = metadata?.avatar_url ?? metadata?.picture
+
+  return typeof avatarUrl === 'string' && avatarUrl.trim()
+    ? avatarUrl.trim()
+    : null
 }
 
 function toFriendlyAuthError(message: string) {

@@ -29,13 +29,35 @@ const FALLBACK_PLAYER_PHOTOS_BY_NAME = new Map([
   ['brunofernandes', '/player-photos/bruno-fernandes.png'],
   ['davidraya', '/player-photos/david-raya.png'],
 ])
+const FALLBACK_TEAM_CODES_BY_PULSE_ID = new Map([
+  ['1', 'ARS'],
+  ['2', 'AVL'],
+  ['127', 'BOU'],
+  ['130', 'BRE'],
+  ['131', 'BRI'],
+  ['4', 'CHE'],
+  ['5', 'COV'],
+  ['6', 'CRY'],
+  ['7', 'EVE'],
+  ['34', 'FUL'],
+  ['41', 'HUL'],
+  ['8', 'IPS'],
+  ['9', 'LEE'],
+  ['10', 'LIV'],
+  ['11', 'MCI'],
+  ['12', 'MUN'],
+  ['23', 'NEW'],
+  ['15', 'NFO'],
+  ['29', 'SUN'],
+  ['21', 'TOT'],
+])
 
 export async function handler(event) {
   const params = event.queryStringParameters ?? {}
   const season = params.season ?? process.env.SCORACLE_SEASON ?? '2026'
   const compSeasonId =
     process.env.PULSE_COMP_SEASON_ID ?? DEFAULT_COMP_SEASON_ID
-  const cacheKey = `home-data-v3:${season}:${compSeasonId}`
+  const cacheKey = `home-data-v4:${season}:${compSeasonId}`
 
   try {
     const cached = await readSupabaseCache(cacheKey)
@@ -177,11 +199,25 @@ function normalizeFixtures(response, teamsById) {
 function normalizePulseTeam(team) {
   const id = String(team?.id ?? 'unknown')
   const club = team?.club ?? {}
+  const teamCode = normalizeTeamCode(
+    team?.teamCode ??
+      team?.teamCodeDisplay ??
+      team?.shortCode ??
+      team?.abbreviation ??
+      team?.tla ??
+      club.teamCode ??
+      club.teamCodeDisplay ??
+      club.shortCode ??
+      club.abbreviation ??
+      club.tla ??
+      FALLBACK_TEAM_CODES_BY_PULSE_ID.get(id),
+  )
 
   return {
     id,
     name: team?.name ?? club.name ?? 'TBC',
     shortName: team?.shortName ?? club.shortName ?? team?.name ?? 'TBC',
+    teamCode,
   }
 }
 
@@ -299,6 +335,15 @@ function normalizeName(value) {
     .replace(/[^a-z0-9]+/g, '')
 }
 
+function normalizeTeamCode(value) {
+  const code = String(value ?? '')
+    .replace(/[^a-z0-9]/gi, '')
+    .slice(0, 3)
+    .toUpperCase()
+
+  return code || 'TBC'
+}
+
 async function readSupabaseCache(requestKey) {
   const config = getSupabaseConfig()
 
@@ -366,6 +411,7 @@ async function syncHomeDataToSupabase({ season, teams, fixtures }) {
     teams.map((team) => ({
       canonical_name: team.name,
       short_name: team.shortName,
+      team_code: team.teamCode,
       pulse_team_id: team.id,
       crest_url: team.crestUrl ?? null,
       logo_url: team.crestUrl ?? null,

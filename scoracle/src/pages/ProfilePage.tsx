@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router'
 import {
   ArrowLeft,
   Camera,
+  LockKeyhole,
   Pencil,
   Save,
   Trash2,
@@ -12,6 +13,7 @@ import {
 import { Header } from '../components/layout/Header'
 import { useAuth } from '../context/useAuth'
 import { fetchHomeData, mockHomeData, type Team } from '../data/homeData'
+import { fetchSimulatedPredictionHistory } from '../data/predictionSimulation'
 import { supabase } from '../lib/supabaseClient'
 import type { PredictionRow } from '../types/predictions'
 import {
@@ -24,6 +26,29 @@ const MAX_AVATAR_SOURCE_BYTES = 3 * 1024 * 1024
 const MAX_AVATAR_DIMENSION = 512
 const AVATAR_QUALITY = 0.82
 const ACCEPTED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const TEAM_CODES_BY_NORMALIZED_NAME: Record<string, string> = {
+  arsenal: 'ARS',
+  astonvilla: 'AVL',
+  bournemouth: 'BOU',
+  brentford: 'BRE',
+  brightonandhovealbion: 'BRI',
+  brightonhovealbion: 'BRI',
+  chelsea: 'CHE',
+  coventrycity: 'COV',
+  crystalpalace: 'CRY',
+  everton: 'EVE',
+  fulham: 'FUL',
+  hullcity: 'HUL',
+  ipswichtown: 'IPS',
+  leedsunited: 'LEE',
+  liverpool: 'LIV',
+  manchestercity: 'MCI',
+  manchesterunited: 'MUN',
+  newcastleunited: 'NEW',
+  nottinghamforest: 'NFO',
+  sunderland: 'SUN',
+  tottenhamhotspur: 'TOT',
+}
 
 type FixtureHistoryRow = {
   id: string
@@ -38,6 +63,8 @@ type FixtureHistoryRow = {
 type TeamRow = {
   id: string
   canonical_name: string
+  team_code: string | null
+  crest_url: string | null
 }
 
 type HistoryItem = {
@@ -45,6 +72,10 @@ type HistoryItem = {
   fixture?: FixtureHistoryRow
   homeTeam?: string
   awayTeam?: string
+  homeTeamCode?: string
+  awayTeamCode?: string
+  homeTeamCrestUrl?: string
+  awayTeamCrestUrl?: string
   matchweekLockAt?: string
 }
 
@@ -58,6 +89,8 @@ export function ProfilePage() {
   } = useAuth()
   const [clubs, setClubs] = useState<Team[]>(mockHomeData.teams)
   const [username, setUsername] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [favoriteClub, setFavoriteClub] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [avatarPath, setAvatarPath] = useState<string | null>(null)
@@ -77,6 +110,8 @@ export function ProfilePage() {
     if (profile) {
       const timeoutId = window.setTimeout(() => {
         setUsername(profile.username)
+        setFirstName(profile.first_name ?? '')
+        setLastName(profile.last_name ?? '')
         setFavoriteClub(profile.favorite_club ?? '')
         setAvatarUrl(profile.avatar_url)
         setAvatarPath(profile.avatar_path)
@@ -118,6 +153,19 @@ export function ProfilePage() {
       setIsHistoryLoading(true)
 
       try {
+        const homeData = await fetchHomeData().catch(() => mockHomeData)
+        const simulatedHistory = await fetchSimulatedPredictionHistory(
+          currentUser.id,
+          homeData,
+        )
+
+        if (simulatedHistory) {
+          if (isMounted) {
+            setHistory(simulatedHistory)
+          }
+          return
+        }
+
         await supabase.rpc('score_my_predictions_for_completed_fixtures')
 
         const { data: predictionRows, error: predictionError } = await supabase
@@ -187,7 +235,7 @@ export function ProfilePage() {
 
         const { data: teamRows, error: teamError } = await supabase
           .from('teams')
-          .select('id, canonical_name')
+          .select('id, canonical_name, team_code, crest_url')
           .in('id', teamIds)
 
         if (teamError) {
@@ -197,7 +245,7 @@ export function ProfilePage() {
         const teamsById = new Map(
           ((teamRows ?? []) as TeamRow[]).map((team) => [
             team.id,
-            team.canonical_name,
+            team,
           ]),
         )
         const rows = predictions
@@ -207,8 +255,30 @@ export function ProfilePage() {
             return {
               prediction,
               fixture,
-              homeTeam: fixture ? teamsById.get(fixture.homeTeamId) : undefined,
-              awayTeam: fixture ? teamsById.get(fixture.awayTeamId) : undefined,
+              homeTeam: fixture
+                ? teamsById.get(fixture.homeTeamId)?.canonical_name
+                : undefined,
+              awayTeam: fixture
+                ? teamsById.get(fixture.awayTeamId)?.canonical_name
+                : undefined,
+              homeTeamCode: fixture
+                ? teamsById.get(fixture.homeTeamId)?.team_code ??
+                  getTeamCodeFallback(
+                    teamsById.get(fixture.homeTeamId)?.canonical_name,
+                  )
+                : undefined,
+              awayTeamCode: fixture
+                ? teamsById.get(fixture.awayTeamId)?.team_code ??
+                  getTeamCodeFallback(
+                    teamsById.get(fixture.awayTeamId)?.canonical_name,
+                  )
+                : undefined,
+              homeTeamCrestUrl: fixture
+                ? teamsById.get(fixture.homeTeamId)?.crest_url ?? undefined
+                : undefined,
+              awayTeamCrestUrl: fixture
+                ? teamsById.get(fixture.awayTeamId)?.crest_url ?? undefined
+                : undefined,
               matchweekLockAt: lockByMatchweek.get(prediction.match_week),
             }
           })
@@ -307,9 +377,16 @@ export function ProfilePage() {
     setMessage(null)
 
     const trimmedUsername = username.trim()
+    const trimmedFirstName = firstName.trim()
+    const trimmedLastName = lastName.trim()
 
     if (!trimmedUsername) {
       setError('Username is required.')
+      return
+    }
+
+    if (!trimmedFirstName || !trimmedLastName) {
+      setError('First name and last name are required.')
       return
     }
 
@@ -348,6 +425,8 @@ export function ProfilePage() {
 
       await updateProfile({
         username: trimmedUsername,
+        firstName: trimmedFirstName,
+        lastName: trimmedLastName,
         favoriteClub: favoriteClub || null,
         avatarUrl: nextAvatarUrl,
         avatarPath: nextAvatarPath,
@@ -377,6 +456,8 @@ export function ProfilePage() {
     }
 
     setUsername(profile.username)
+    setFirstName(profile.first_name ?? '')
+    setLastName(profile.last_name ?? '')
     setFavoriteClub(profile.favorite_club ?? '')
     setAvatarUrl(profile.avatar_url)
     setAvatarPath(profile.avatar_path)
@@ -409,7 +490,10 @@ export function ProfilePage() {
   }
 
   async function handleDeletePrediction(item: HistoryItem) {
-    if (isMatchweekLocked(item.prediction.match_week, history)) {
+    if (
+      isMatchweekLocked(item.prediction.match_week, history) ||
+      hasActualResult(item.fixture)
+    ) {
       setError('Predictions are locked for that match week.')
       return
     }
@@ -479,7 +563,7 @@ export function ProfilePage() {
           </Link>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(280px,0.7fr)_minmax(0,1.3fr)]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
           <form
             onSubmit={handleSave}
             className="self-start rounded-lg border border-[#DADADA] bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
@@ -502,10 +586,11 @@ export function ProfilePage() {
                     setMessage(null)
                     setError(null)
                   }}
-                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#DADADA] px-3 text-sm font-semibold text-[#333333] transition hover:bg-[#E8F4FA]"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#333333] transition hover:bg-[#E8F4FA]"
+                  aria-label="Edit profile"
+                  title="Edit profile"
                 >
                   <Pencil className="h-4 w-4" />
-                  Edit
                 </button>
               ) : null}
             </div>
@@ -569,14 +654,22 @@ export function ProfilePage() {
                 </label>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <ReadOnlyField
-                    label="First name"
-                    value={profile.first_name ?? 'Not set'}
-                  />
-                  <ReadOnlyField
-                    label="Last name"
-                    value={profile.last_name ?? 'Not set'}
-                  />
+                  <label className="block text-sm font-semibold text-[#333333]">
+                    First name
+                    <input
+                      value={firstName}
+                      onChange={(event) => setFirstName(event.target.value)}
+                      className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] px-3 text-base focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+                    />
+                  </label>
+                  <label className="block text-sm font-semibold text-[#333333]">
+                    Last name
+                    <input
+                      value={lastName}
+                      onChange={(event) => setLastName(event.target.value)}
+                      className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] px-3 text-base focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+                    />
+                  </label>
                 </div>
 
                 <ReadOnlyField label="Email ID" value={profile.email} />
@@ -679,16 +772,15 @@ export function ProfilePage() {
                     Match Week {matchWeek}
                   </h4>
                   <div className="overflow-hidden rounded-lg border border-[#DADADA]">
-                    <table className="w-full text-left text-sm">
+                    <table className="w-full table-fixed text-left text-xs">
                       <thead className="bg-[#E8F4FA] text-xs uppercase text-[#5f6664]">
                         <tr>
-                          <th className="px-3 py-2">Match week</th>
-                          <th className="px-3 py-2">Fixture</th>
-                          <th className="px-3 py-2">User prediction</th>
-                          <th className="px-3 py-2">Actual result</th>
-                          <th className="px-3 py-2">Call quality</th>
-                          <th className="px-3 py-2 text-right">Points</th>
-                          <th className="px-3 py-2 text-right">Action</th>
+                          <th className="w-[28%] px-2 py-2">Fixture</th>
+                          <th className="w-[15%] px-2 py-2">Pred</th>
+                          <th className="w-[13%] px-2 py-2">Actual</th>
+                          <th className="w-[21%] px-2 py-2">Call</th>
+                          <th className="w-[10%] px-2 py-2 text-right">Pts</th>
+                          <th className="w-[13%] px-2 py-2 text-right">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#DADADA]">
@@ -702,20 +794,16 @@ export function ProfilePage() {
                           const isLocked = isMatchweekLocked(
                             item.prediction.match_week,
                             history,
-                          )
+                          ) || hasActualResult(item.fixture)
 
                           return (
                             <tr key={item.prediction.id}>
                               <td className="px-3 py-3 font-semibold">
-                                MW {item.prediction.match_week}
+                                <FixtureLabel item={item} />
                               </td>
-                              <td className="px-3 py-3 font-semibold">
-                                {item.homeTeam ?? 'Home'} vs{' '}
-                                {item.awayTeam ?? 'Away'}
-                              </td>
-                              <td className="px-3 py-3">
+                              <td className="px-2 py-3">
                                 <span
-                                  className={`inline-flex rounded-lg border px-2 py-1 font-bold ${
+                                  className={`inline-flex whitespace-nowrap rounded-lg border px-2 py-1 font-bold ${
                                     isPendingResult
                                       ? 'border-[#F59E0B]'
                                       : 'border-transparent'
@@ -725,17 +813,17 @@ export function ProfilePage() {
                                   {item.prediction.predicted_away_score}
                                 </span>
                               </td>
-                              <td className="px-3 py-3">
+                              <td className="px-2 py-3 whitespace-nowrap">
                                 {formatActualResult(item.fixture)}
                               </td>
-                              <td className="px-3 py-3">
+                              <td className="px-2 py-3">
                                 {isPendingResult ? (
-                                  <span className="rounded-full border border-[#F59E0B] bg-white px-2 py-1 text-xs font-bold text-[#8a5a00]">
+                                  <span className="inline-flex whitespace-nowrap rounded-full border border-[#F59E0B] bg-white px-2 py-1 text-xs font-bold text-[#8a5a00]">
                                     TBP
                                   </span>
                                 ) : (
                                   <span
-                                    className="rounded-full px-2 py-1 text-xs font-bold"
+                                    className="inline-flex whitespace-nowrap rounded-full px-2 py-1 text-xs font-bold"
                                     style={{
                                       backgroundColor: display.backgroundColor,
                                       color: display.textColor,
@@ -745,31 +833,32 @@ export function ProfilePage() {
                                   </span>
                                 )}
                               </td>
-                              <td className="px-3 py-3 text-right font-bold">
+                              <td className="px-2 py-3 text-right font-bold">
                                 {item.prediction.points}
                               </td>
-                              <td className="px-3 py-3 text-right">
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeletePrediction(item)}
-                                  disabled={
-                                    isLocked ||
-                                    deletingPredictionId === item.prediction.id
-                                  }
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#F45B5B]/45 text-[#8a2626] transition hover:bg-[#F45B5B]/10 disabled:cursor-not-allowed disabled:border-[#DADADA] disabled:text-[#5f6664]"
-                                  aria-label={
-                                    isLocked
-                                      ? 'Prediction locked'
-                                      : 'Delete prediction'
-                                  }
-                                  title={
-                                    isLocked
-                                      ? 'Predictions locked'
-                                      : 'Delete prediction'
-                                  }
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
+                              <td className="px-2 py-3 text-right">
+                                {isLocked ? (
+                                  <span
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#F45B5B]/10 text-[#8a2626]"
+                                    aria-label="Prediction locked"
+                                    title="Predictions locked"
+                                  >
+                                    <LockKeyhole className="h-4 w-4" />
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePrediction(item)}
+                                    disabled={
+                                      deletingPredictionId === item.prediction.id
+                                    }
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#F45B5B]/45 text-[#8a2626] transition hover:bg-[#F45B5B]/10 disabled:cursor-not-allowed disabled:border-[#DADADA] disabled:text-[#5f6664]"
+                                    aria-label="Delete prediction"
+                                    title="Delete prediction"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           )
@@ -793,6 +882,76 @@ function formatActualResult(fixture?: FixtureHistoryRow) {
   }
 
   return `${fixture.homeScore} - ${fixture.awayScore}`
+}
+
+function FixtureLabel({ item }: { item: HistoryItem }) {
+  const homeCode = item.homeTeamCode ?? getTeamCodeFallback(item.homeTeam)
+  const awayCode = item.awayTeamCode ?? getTeamCodeFallback(item.awayTeam)
+
+  return (
+    <span
+      className="inline-grid grid-cols-[20px_32px_16px_20px_32px] items-center gap-1 whitespace-nowrap"
+      title={`${item.homeTeam ?? 'Home'} vs ${item.awayTeam ?? 'Away'}`}
+    >
+      <ClubMiniCrest
+        crestUrl={item.homeTeamCrestUrl}
+        label={item.homeTeam ?? 'Home'}
+      />
+      <span className="font-bold tracking-normal">{homeCode}</span>
+      <span className="text-center text-[#5f6664]">vs</span>
+      <ClubMiniCrest
+        crestUrl={item.awayTeamCrestUrl}
+        label={item.awayTeam ?? 'Away'}
+      />
+      <span className="font-bold tracking-normal">{awayCode}</span>
+    </span>
+  )
+}
+
+function getTeamCodeFallback(teamName?: string | null) {
+  if (!teamName) {
+    return 'TBC'
+  }
+
+  const normalizedName = normalizeTeamName(teamName)
+  const knownCode = TEAM_CODES_BY_NORMALIZED_NAME[normalizedName]
+
+  if (knownCode) {
+    return knownCode
+  }
+
+  return teamName.replace(/[^a-z0-9]/gi, '').slice(0, 3).toUpperCase() || 'TBC'
+}
+
+function normalizeTeamName(teamName: string) {
+  return teamName
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '')
+}
+
+function ClubMiniCrest({
+  crestUrl,
+  label,
+}: {
+  crestUrl?: string
+  label: string
+}) {
+  if (crestUrl) {
+    return (
+      <img
+        src={crestUrl}
+        alt=""
+        className="h-5 w-5 shrink-0 rounded-full object-contain"
+      />
+    )
+  }
+
+  return (
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#3CC8A5]/15 text-[9px] font-bold text-[#02745d]">
+      {initials(label).slice(0, 2)}
+    </span>
+  )
 }
 
 function hasActualResult(

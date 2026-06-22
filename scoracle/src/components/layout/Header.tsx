@@ -47,12 +47,12 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
 
           {profile ? (
             <>
-              <button
-                type="button"
-                className="rounded-lg border border-[#DADADA] px-4 py-2 text-sm font-semibold text-[#333333]"
+              <Link
+                to="/leaderboard"
+                className="rounded-lg border border-[#DADADA] px-4 py-2 text-sm font-semibold text-[#333333] transition hover:bg-[#E8F4FA]"
               >
                 Leaderboard
-              </button>
+              </Link>
               {isAdmin ? (
                 <Link
                   to="/admin-soodlabs"

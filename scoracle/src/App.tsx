@@ -24,6 +24,10 @@ import {
   type Leader,
   type Team,
 } from './data/homeData'
+import {
+  applyPredictionSimulationToHomeData,
+  fetchSimulatedPredictionsForFixtures,
+} from './data/predictionSimulation'
 import { supabase } from './lib/supabaseClient'
 import type { PredictionDraft, PredictionRow } from './types/predictions'
 import {
@@ -174,21 +178,32 @@ function App() {
     let isMounted = true
 
     fetchHomeData()
+      .then((data) => applyPredictionSimulationToHomeData(data))
       .then((data) => {
         if (!isMounted) {
           return
         }
 
         setHomeData(data)
-        setDataNotice('Live provider data loaded')
+        setDataNotice(
+          data.sources.includes('Local prediction simulation')
+            ? 'Local prediction simulation loaded'
+            : 'Live provider data loaded',
+        )
       })
-      .catch(() => {
+      .catch(async () => {
         if (!isMounted) {
           return
         }
 
-        setHomeData(mockHomeData)
-        setDataNotice('Using local fallback data until the backend is running')
+        const simulatedMockHomeData =
+          await applyPredictionSimulationToHomeData(mockHomeData)
+        setHomeData(simulatedMockHomeData)
+        setDataNotice(
+          simulatedMockHomeData.sources.includes('Local prediction simulation')
+            ? 'Local prediction simulation loaded'
+            : 'Using local fallback data until the backend is running',
+        )
       })
       .finally(() => {
         if (isMounted) {
@@ -214,6 +229,43 @@ function App() {
       setPredictionMessage(null)
 
       try {
+        const simulatedPredictions = await fetchSimulatedPredictionsForFixtures(
+          currentUser.id,
+          predictionFixtures,
+        )
+
+        if (simulatedPredictions) {
+          if (!isMounted) {
+            return
+          }
+
+          const nextPredictions = new Map(
+            simulatedPredictions.map((prediction) => [
+              prediction.fixture_id,
+              prediction,
+            ]),
+          )
+          const nextDrafts: Record<string, PredictionDraft> = {}
+
+          for (const fixture of predictionFixtures) {
+            const draftKey = getPredictionDraftKey(fixture)
+            const prediction = fixture.dbId
+              ? nextPredictions.get(fixture.dbId)
+              : undefined
+            nextDrafts[draftKey] = prediction
+              ? {
+                  home: prediction.predicted_home_score.toString(),
+                  away: prediction.predicted_away_score.toString(),
+                }
+              : { home: '', away: '' }
+          }
+
+          setPredictionsByFixtureId(nextPredictions)
+          setPredictionDrafts(nextDrafts)
+          setDirtyFixtureIds(new Set())
+          return
+        }
+
         await supabase.rpc('score_my_predictions_for_completed_fixtures')
 
         const { data, error } = await supabase
@@ -942,22 +994,23 @@ function FixtureCard({
         <div className="space-y-3 pt-1 text-sm">
           <Fact label="Venue" value={fixture.venue} />
           <Fact label="Round" value={`MW ${fixture.matchweek}`} />
-          <Fact label="Watch" value={fixture.watch ?? 'TBC'} />
+          <Fact label="Status" value={fixture.status} />
         </div>
 
         <div className="space-y-3 pt-1 text-sm">
-          <Fact label="Status" value={fixture.status} />
           {predictionMode ? (
-            <PredictionPanel
-              fixture={fixture}
-              draft={draft}
-              prediction={prediction}
-              display={displayPrediction}
-              isLocked={isMatchweekLocked}
-              isDeleting={deletingPredictionId === prediction?.id}
-              onChange={onPredictionChange}
-              onDelete={onDeletePrediction}
-            />
+            <div className="mt-7">
+              <PredictionPanel
+                fixture={fixture}
+                draft={draft}
+                prediction={prediction}
+                display={displayPrediction}
+                isLocked={isMatchweekLocked}
+                isDeleting={deletingPredictionId === prediction?.id}
+                onChange={onPredictionChange}
+                onDelete={onDeletePrediction}
+              />
+            </div>
           ) : (
             <>
               <Fact
@@ -1028,8 +1081,12 @@ function PredictionPanel({
           ) : null}
         </div>
         {isLocked ? (
-          <span className="rounded-full bg-[#F45B5B]/10 px-2 py-1 text-xs font-bold text-[#8a2626]">
-            Predictions locked
+          <span
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#F45B5B]/10 text-[#8a2626]"
+            aria-label="Predictions locked"
+            title="Predictions locked"
+          >
+            <LockKeyhole className="h-4 w-4" />
           </span>
         ) : null}
       </div>
@@ -1061,14 +1118,8 @@ function PredictionPanel({
           }}
         >
           <p>
-            <span className="font-bold">
-              Actual: {fixture.homeScore} - {fixture.awayScore}
-            </span>
-            <span className="mx-2 text-[#5f6664]">|</span>
-            <span>
-              Your prediction: {display.predictionText} ·{' '}
-              {predictionDisplay.label} · +{display.points} pts
-            </span>
+            <span className="font-bold">{predictionDisplay.label}</span>
+            <span> · +{display.points} pts</span>
           </p>
         </div>
       ) : null}
@@ -1314,6 +1365,14 @@ function getPredictionDraftKey(fixture: Fixture) {
 function getMatchweekLockInfo(fixtures: Fixture[]) {
   if (fixtures.length === 0) {
     return { isLocked: true, lockAt: null as Date | null }
+  }
+
+  if (
+    fixtures.every(
+      (fixture) => fixture.homeScore !== null && fixture.awayScore !== null,
+    )
+  ) {
+    return { isLocked: true, lockAt: new Date() }
   }
 
   const firstKickoff = Math.min(

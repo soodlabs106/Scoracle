@@ -5,6 +5,7 @@ yarn-error.log
 yarn-debug.log
 pnpm-lock.yaml
 package-lock.json
+!scoracle/package-lock.json
 
 # Python
 __pycache__/
@@ -20,6 +21,8 @@ eggs/
 .eggs/
 lib/
 lib64/
+!scoracle/src/lib/
+!scoracle/src/lib/**
 parts/
 sdist/
 var/

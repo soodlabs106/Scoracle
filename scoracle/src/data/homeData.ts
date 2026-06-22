@@ -2,6 +2,7 @@ export type Team = {
   id: string
   name: string
   shortName: string
+  teamCode: string
   crestUrl?: string
 }
 
@@ -63,6 +64,7 @@ export const premierLeagueTeams: Team[] = [
     id: '1',
     name: 'Arsenal',
     shortName: 'Arsenal',
+    teamCode: 'ARS',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/uyhbfe1612467038.png',
   },
@@ -70,6 +72,7 @@ export const premierLeagueTeams: Team[] = [
     id: '2',
     name: 'Aston Villa',
     shortName: 'Aston Villa',
+    teamCode: 'AVL',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/jykrpv1717309891.png',
   },
@@ -77,6 +80,7 @@ export const premierLeagueTeams: Team[] = [
     id: '127',
     name: 'Bournemouth',
     shortName: 'Bournemouth',
+    teamCode: 'BOU',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/y08nak1534071116.png',
   },
@@ -84,6 +88,7 @@ export const premierLeagueTeams: Team[] = [
     id: '130',
     name: 'Brentford',
     shortName: 'Brentford',
+    teamCode: 'BRE',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/grv1aw1546453779.png',
   },
@@ -91,6 +96,7 @@ export const premierLeagueTeams: Team[] = [
     id: '131',
     name: 'Brighton & Hove Albion',
     shortName: 'Brighton',
+    teamCode: 'BRI',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/ywypts1448810904.png',
   },
@@ -98,6 +104,7 @@ export const premierLeagueTeams: Team[] = [
     id: '4',
     name: 'Chelsea',
     shortName: 'Chelsea',
+    teamCode: 'CHE',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/yvwvtu1448813215.png',
   },
@@ -105,6 +112,7 @@ export const premierLeagueTeams: Team[] = [
     id: '5',
     name: 'Coventry City',
     shortName: 'Coventry',
+    teamCode: 'COV',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/uxyqys1424033798.png',
   },
@@ -112,6 +120,7 @@ export const premierLeagueTeams: Team[] = [
     id: '6',
     name: 'Crystal Palace',
     shortName: 'Crystal Palace',
+    teamCode: 'CRY',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/ia6i3m1656014992.png',
   },
@@ -119,6 +128,7 @@ export const premierLeagueTeams: Team[] = [
     id: '7',
     name: 'Everton',
     shortName: 'Everton',
+    teamCode: 'EVE',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/eqayrf1523184794.png',
   },
@@ -126,6 +136,7 @@ export const premierLeagueTeams: Team[] = [
     id: '34',
     name: 'Fulham',
     shortName: 'Fulham',
+    teamCode: 'FUL',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/xwwvyt1448811086.png',
   },
@@ -133,6 +144,7 @@ export const premierLeagueTeams: Team[] = [
     id: '41',
     name: 'Hull City',
     shortName: 'Hull',
+    teamCode: 'HUL',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/fbqqda1601726113.png',
   },
@@ -140,6 +152,7 @@ export const premierLeagueTeams: Team[] = [
     id: '8',
     name: 'Ipswich Town',
     shortName: 'Ipswich',
+    teamCode: 'IPS',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/mdj1ey1634670785.png',
   },
@@ -147,6 +160,7 @@ export const premierLeagueTeams: Team[] = [
     id: '9',
     name: 'Leeds United',
     shortName: 'Leeds',
+    teamCode: 'LEE',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/jcgrml1756649030.png',
   },
@@ -154,6 +168,7 @@ export const premierLeagueTeams: Team[] = [
     id: '10',
     name: 'Liverpool',
     shortName: 'Liverpool',
+    teamCode: 'LIV',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/kfaher1737969724.png',
   },
@@ -161,6 +176,7 @@ export const premierLeagueTeams: Team[] = [
     id: '11',
     name: 'Manchester City',
     shortName: 'Man City',
+    teamCode: 'MCI',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/vwpvry1467462651.png',
   },
@@ -168,6 +184,7 @@ export const premierLeagueTeams: Team[] = [
     id: '12',
     name: 'Manchester United',
     shortName: 'Man Utd',
+    teamCode: 'MUN',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/xzqdr11517660252.png',
   },
@@ -175,6 +192,7 @@ export const premierLeagueTeams: Team[] = [
     id: '23',
     name: 'Newcastle United',
     shortName: 'Newcastle',
+    teamCode: 'NEW',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/lhwuiz1621593302.png',
   },
@@ -182,6 +200,7 @@ export const premierLeagueTeams: Team[] = [
     id: '15',
     name: "Nottingham Forest",
     shortName: "Nott'm Forest",
+    teamCode: 'NFO',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/1i2kvh1719918076.png',
   },
@@ -189,6 +208,7 @@ export const premierLeagueTeams: Team[] = [
     id: '29',
     name: 'Sunderland',
     shortName: 'Sunderland',
+    teamCode: 'SUN',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/tprtus1448813498.png',
   },
@@ -196,6 +216,7 @@ export const premierLeagueTeams: Team[] = [
     id: '21',
     name: 'Tottenham Hotspur',
     shortName: 'Spurs',
+    teamCode: 'TOT',
     crestUrl:
       'https://r2.thesportsdb.com/images/media/team/badge/dfyfhl1604094109.png',
   },
