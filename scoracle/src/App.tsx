@@ -66,6 +66,7 @@ function App() {
   const [selectedMatchweek, setSelectedMatchweek] = useState('all')
   const [selectedMonth, setSelectedMonth] = useState('all')
   const [isClubMenuOpen, setIsClubMenuOpen] = useState(false)
+  const [isMobileStandingsOpen, setIsMobileStandingsOpen] = useState(false)
   const [modalKind, setModalKind] = useState<ModalKind>(null)
   const [selectedPredictionMatchweek, setSelectedPredictionMatchweek] =
     useState('')
@@ -576,7 +577,32 @@ function App() {
       />
 
       <section className="mx-auto grid max-w-[1600px] gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(330px,0.95fr)_minmax(460px,1.55fr)_minmax(230px,0.65fr)] lg:px-8">
-        <aside className="rounded-lg border border-[#DADADA] bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
+        <section className="rounded-lg border border-[#DADADA] bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)] lg:hidden">
+          <button
+            type="button"
+            onClick={() => setIsMobileStandingsOpen((value) => !value)}
+            className="flex w-full items-center justify-between gap-3 text-left"
+            aria-expanded={isMobileStandingsOpen}
+          >
+            <span className="inline-flex items-center gap-2 text-lg font-semibold">
+              <Trophy className="h-5 w-5 text-[#3CC8A5]" />
+              Premier League Table
+            </span>
+            <span className="rounded-full bg-[#E8F4FA] px-3 py-1 text-xs font-bold uppercase text-[#03718a]">
+              {isMobileStandingsOpen ? 'Hide' : 'Show'}
+            </span>
+          </button>
+          {isMobileStandingsOpen ? (
+            <div className="mt-4">
+              <StandingsTable
+                standings={homeData.standings}
+                teamsById={teamsById}
+              />
+            </div>
+          ) : null}
+        </section>
+
+        <aside className="hidden rounded-lg border border-[#DADADA] bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)] lg:block">
           <SectionTitle icon={<Trophy className="h-5 w-5" />} title="Table" />
           <StandingsTable standings={homeData.standings} teamsById={teamsById} />
         </aside>
@@ -968,11 +994,15 @@ function FixtureCard({
 
   return (
     <article className="overflow-hidden rounded-lg border border-[#DADADA] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
-      <div className="relative grid gap-4 border-l-8 border-[#3CC8A5] p-4 xl:grid-cols-[minmax(290px,1.65fr)_minmax(130px,0.72fr)_minmax(170px,0.9fr)]">
+      <div className="relative grid gap-3 border-l-8 border-[#3CC8A5] p-3 sm:p-4 xl:grid-cols-[minmax(290px,1.65fr)_minmax(130px,0.72fr)_minmax(170px,0.9fr)] xl:gap-4">
         <span className="absolute right-4 top-4 rounded-full bg-[#E8F4FA] px-3 py-1 text-xs font-semibold uppercase text-[#03718a]">
           MW {fixture.matchweek}
         </span>
-        <div className="space-y-3 pr-1 pt-1">
+        <div
+          className={`space-y-3 pr-1 pt-1 ${
+            predictionMode ? 'pt-8 sm:pt-1' : ''
+          }`}
+        >
           <FixtureTeamRow
             team={homeTeam}
             score={fixture.homeScore}
@@ -982,7 +1012,11 @@ function FixtureCard({
             vs
           </div>
           <FixtureTeamRow team={awayTeam} score={fixture.awayScore} />
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1">
+          <div
+            className={`flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 ${
+              predictionMode ? 'hidden lg:flex' : ''
+            }`}
+          >
             <p className="text-base font-bold">{kickoff.date}</p>
             <p className="flex items-center gap-1 text-sm text-[#5f6664]">
               <Clock3 className="h-4 w-4" />
@@ -991,7 +1025,11 @@ function FixtureCard({
           </div>
         </div>
 
-        <div className="space-y-3 pt-1 text-sm">
+        <div
+          className={`space-y-3 pt-1 text-sm ${
+            predictionMode ? 'hidden lg:block' : ''
+          }`}
+        >
           <Fact label="Venue" value={fixture.venue} />
           <Fact label="Round" value={`MW ${fixture.matchweek}`} />
           <Fact label="Status" value={fixture.status} />
@@ -999,7 +1037,7 @@ function FixtureCard({
 
         <div className="space-y-3 pt-1 text-sm">
           {predictionMode ? (
-            <div className="mt-7">
+            <div className="mt-0 lg:mt-7">
               <PredictionPanel
                 fixture={fixture}
                 draft={draft}
