@@ -1,0 +1,474 @@
+{
+  "enabled": true,
+  "scoredMatchWeeks": [5, 4, 3, 2, 1],
+  "overall": [
+    {
+      "user_id": "sim-siri-sood",
+      "username": "Siri Sood",
+      "favorite_club": "Arsenal",
+      "avatar_url": "/simulation-avatars/siri-sood.svg",
+      "total_points": 76,
+      "scored_predictions": 50,
+      "exact_count": 8,
+      "great_count": 8,
+      "close_count": 10,
+      "near_miss_count": 9,
+      "miss_count": 15
+    },
+    {
+      "user_id": "sim-rishi-sood",
+      "username": "Rishi Sood",
+      "favorite_club": "Manchester United",
+      "avatar_url": "/simulation-avatars/rishi-sood.svg",
+      "total_points": 68,
+      "scored_predictions": 50,
+      "exact_count": 6,
+      "great_count": 8,
+      "close_count": 10,
+      "near_miss_count": 12,
+      "miss_count": 14
+    },
+    {
+      "user_id": "sim-sood-labs",
+      "username": "SoodLabs",
+      "favorite_club": "Liverpool",
+      "avatar_url": "/simulation-avatars/soodlabs.svg",
+      "total_points": 62,
+      "scored_predictions": 50,
+      "exact_count": 5,
+      "great_count": 7,
+      "close_count": 13,
+      "near_miss_count": 10,
+      "miss_count": 15
+    }
+  ],
+  "matchWeeks": {
+    "1": [
+      {
+        "user_id": "sim-rishi-sood",
+        "username": "Rishi Sood",
+        "favorite_club": "Manchester United",
+        "match_week": 1,
+        "total_points": 18,
+        "scored_predictions": 10,
+        "exact_count": 2,
+        "great_count": 2,
+        "close_count": 3,
+        "near_miss_count": 1,
+        "miss_count": 2
+      },
+      {
+        "user_id": "sim-siri-sood",
+        "username": "Siri Sood",
+        "favorite_club": "Arsenal",
+        "match_week": 1,
+        "total_points": 14,
+        "scored_predictions": 10,
+        "exact_count": 1,
+        "great_count": 2,
+        "close_count": 3,
+        "near_miss_count": 2,
+        "miss_count": 2
+      },
+      {
+        "user_id": "sim-sood-labs",
+        "username": "SoodLabs",
+        "favorite_club": "Liverpool",
+        "match_week": 1,
+        "total_points": 11,
+        "scored_predictions": 10,
+        "exact_count": 1,
+        "great_count": 1,
+        "close_count": 2,
+        "near_miss_count": 3,
+        "miss_count": 3
+      }
+    ],
+    "2": [
+      {
+        "user_id": "sim-sood-labs",
+        "username": "SoodLabs",
+        "favorite_club": "Liverpool",
+        "match_week": 2,
+        "total_points": 20,
+        "scored_predictions": 10,
+        "exact_count": 2,
+        "great_count": 2,
+        "close_count": 2,
+        "near_miss_count": 2,
+        "miss_count": 2
+      },
+      {
+        "user_id": "sim-siri-sood",
+        "username": "Siri Sood",
+        "favorite_club": "Arsenal",
+        "match_week": 2,
+        "total_points": 15,
+        "scored_predictions": 10,
+        "exact_count": 2,
+        "great_count": 1,
+        "close_count": 1,
+        "near_miss_count": 3,
+        "miss_count": 3
+      },
+      {
+        "user_id": "sim-rishi-sood",
+        "username": "Rishi Sood",
+        "favorite_club": "Manchester United",
+        "match_week": 2,
+        "total_points": 12,
+        "scored_predictions": 10,
+        "exact_count": 1,
+        "great_count": 1,
+        "close_count": 2,
+        "near_miss_count": 3,
+        "miss_count": 3
+      }
+    ],
+    "3": [
+      {
+        "user_id": "sim-siri-sood",
+        "username": "Siri Sood",
+        "favorite_club": "Arsenal",
+        "match_week": 3,
+        "total_points": 19,
+        "scored_predictions": 10,
+        "exact_count": 2,
+        "great_count": 1,
+        "close_count": 3,
+        "near_miss_count": 2,
+        "miss_count": 2
+      },
+      {
+        "user_id": "sim-rishi-sood",
+        "username": "Rishi Sood",
+        "favorite_club": "Manchester United",
+        "match_week": 3,
+        "total_points": 13,
+        "scored_predictions": 10,
+        "exact_count": 1,
+        "great_count": 2,
+        "close_count": 1,
+        "near_miss_count": 3,
+        "miss_count": 3
+      },
+      {
+        "user_id": "sim-sood-labs",
+        "username": "SoodLabs",
+        "favorite_club": "Liverpool",
+        "match_week": 3,
+        "total_points": 10,
+        "scored_predictions": 10,
+        "exact_count": 0,
+        "great_count": 2,
+        "close_count": 2,
+        "near_miss_count": 3,
+        "miss_count": 3
+      }
+    ],
+    "4": [
+      {
+        "user_id": "sim-rishi-sood",
+        "username": "Rishi Sood",
+        "favorite_club": "Manchester United",
+        "match_week": 4,
+        "total_points": 16,
+        "scored_predictions": 10,
+        "exact_count": 1,
+        "great_count": 3,
+        "close_count": 1,
+        "near_miss_count": 2,
+        "miss_count": 3
+      },
+      {
+        "user_id": "sim-siri-sood",
+        "username": "Siri Sood",
+        "favorite_club": "Arsenal",
+        "match_week": 4,
+        "total_points": 13,
+        "scored_predictions": 10,
+        "exact_count": 1,
+        "great_count": 2,
+        "close_count": 1,
+        "near_miss_count": 3,
+        "miss_count": 3
+      },
+      {
+        "user_id": "sim-sood-labs",
+        "username": "SoodLabs",
+        "favorite_club": "Liverpool",
+        "match_week": 4,
+        "total_points": 12,
+        "scored_predictions": 10,
+        "exact_count": 1,
+        "great_count": 1,
+        "close_count": 2,
+        "near_miss_count": 3,
+        "miss_count": 3
+      }
+    ],
+    "5": [
+      {
+        "user_id": "sim-siri-sood",
+        "username": "Siri Sood",
+        "favorite_club": "Arsenal",
+        "match_week": 5,
+        "total_points": 15,
+        "scored_predictions": 10,
+        "exact_count": 2,
+        "great_count": 2,
+        "close_count": 1,
+        "near_miss_count": 2,
+        "miss_count": 3
+      },
+      {
+        "user_id": "sim-rishi-sood",
+        "username": "Rishi Sood",
+        "favorite_club": "Manchester United",
+        "match_week": 5,
+        "total_points": 9,
+        "scored_predictions": 10,
+        "exact_count": 1,
+        "great_count": 0,
+        "close_count": 2,
+        "near_miss_count": 3,
+        "miss_count": 4
+      },
+      {
+        "user_id": "sim-sood-labs",
+        "username": "SoodLabs",
+        "favorite_club": "Liverpool",
+        "match_week": 5,
+        "total_points": 9,
+        "scored_predictions": 10,
+        "exact_count": 0,
+        "great_count": 1,
+        "close_count": 3,
+        "near_miss_count": 2,
+        "miss_count": 4
+      }
+    ]
+  },
+  "rankMovement": {
+    "1": [
+      {
+        "user_id": "sim-rishi-sood",
+        "username": "Rishi Sood",
+        "favorite_club": "Manchester United",
+        "match_week": 1,
+        "current_rank": 1,
+        "previous_rank": null,
+        "rank_change": null,
+        "weekly_points": 18,
+        "overall_points_after_week": 18,
+        "exact_count": 2,
+        "great_count": 2,
+        "close_count": 3
+      },
+      {
+        "user_id": "sim-siri-sood",
+        "username": "Siri Sood",
+        "favorite_club": "Arsenal",
+        "match_week": 1,
+        "current_rank": 2,
+        "previous_rank": null,
+        "rank_change": null,
+        "weekly_points": 14,
+        "overall_points_after_week": 14,
+        "exact_count": 1,
+        "great_count": 2,
+        "close_count": 3
+      },
+      {
+        "user_id": "sim-sood-labs",
+        "username": "SoodLabs",
+        "favorite_club": "Liverpool",
+        "match_week": 1,
+        "current_rank": 3,
+        "previous_rank": null,
+        "rank_change": null,
+        "weekly_points": 11,
+        "overall_points_after_week": 11,
+        "exact_count": 1,
+        "great_count": 1,
+        "close_count": 2
+      }
+    ],
+    "2": [
+      {
+        "user_id": "sim-rishi-sood",
+        "username": "Rishi Sood",
+        "favorite_club": "Manchester United",
+        "match_week": 2,
+        "current_rank": 1,
+        "previous_rank": 1,
+        "rank_change": 0,
+        "weekly_points": 12,
+        "overall_points_after_week": 30,
+        "exact_count": 3,
+        "great_count": 3,
+        "close_count": 5
+      },
+      {
+        "user_id": "sim-sood-labs",
+        "username": "SoodLabs",
+        "favorite_club": "Liverpool",
+        "match_week": 2,
+        "current_rank": 2,
+        "previous_rank": 3,
+        "rank_change": 1,
+        "weekly_points": 20,
+        "overall_points_after_week": 31,
+        "exact_count": 3,
+        "great_count": 3,
+        "close_count": 4
+      },
+      {
+        "user_id": "sim-siri-sood",
+        "username": "Siri Sood",
+        "favorite_club": "Arsenal",
+        "match_week": 2,
+        "current_rank": 3,
+        "previous_rank": 2,
+        "rank_change": -1,
+        "weekly_points": 15,
+        "overall_points_after_week": 29,
+        "exact_count": 3,
+        "great_count": 3,
+        "close_count": 4
+      }
+    ],
+    "3": [
+      {
+        "user_id": "sim-siri-sood",
+        "username": "Siri Sood",
+        "favorite_club": "Arsenal",
+        "match_week": 3,
+        "current_rank": 1,
+        "previous_rank": 3,
+        "rank_change": 2,
+        "weekly_points": 19,
+        "overall_points_after_week": 48,
+        "exact_count": 5,
+        "great_count": 4,
+        "close_count": 7
+      },
+      {
+        "user_id": "sim-rishi-sood",
+        "username": "Rishi Sood",
+        "favorite_club": "Manchester United",
+        "match_week": 3,
+        "current_rank": 2,
+        "previous_rank": 1,
+        "rank_change": -1,
+        "weekly_points": 13,
+        "overall_points_after_week": 43,
+        "exact_count": 4,
+        "great_count": 5,
+        "close_count": 6
+      },
+      {
+        "user_id": "sim-sood-labs",
+        "username": "SoodLabs",
+        "favorite_club": "Liverpool",
+        "match_week": 3,
+        "current_rank": 3,
+        "previous_rank": 2,
+        "rank_change": -1,
+        "weekly_points": 10,
+        "overall_points_after_week": 41,
+        "exact_count": 3,
+        "great_count": 5,
+        "close_count": 6
+      }
+    ],
+    "4": [
+      {
+        "user_id": "sim-rishi-sood",
+        "username": "Rishi Sood",
+        "favorite_club": "Manchester United",
+        "match_week": 4,
+        "current_rank": 1,
+        "previous_rank": 2,
+        "rank_change": 1,
+        "weekly_points": 16,
+        "overall_points_after_week": 59,
+        "exact_count": 5,
+        "great_count": 8,
+        "close_count": 7
+      },
+      {
+        "user_id": "sim-siri-sood",
+        "username": "Siri Sood",
+        "favorite_club": "Arsenal",
+        "match_week": 4,
+        "current_rank": 2,
+        "previous_rank": 1,
+        "rank_change": -1,
+        "weekly_points": 13,
+        "overall_points_after_week": 61,
+        "exact_count": 6,
+        "great_count": 6,
+        "close_count": 8
+      },
+      {
+        "user_id": "sim-sood-labs",
+        "username": "SoodLabs",
+        "favorite_club": "Liverpool",
+        "match_week": 4,
+        "current_rank": 3,
+        "previous_rank": 3,
+        "rank_change": 0,
+        "weekly_points": 12,
+        "overall_points_after_week": 53,
+        "exact_count": 4,
+        "great_count": 6,
+        "close_count": 8
+      }
+    ],
+    "5": [
+      {
+        "user_id": "sim-siri-sood",
+        "username": "Siri Sood",
+        "favorite_club": "Arsenal",
+        "match_week": 5,
+        "current_rank": 1,
+        "previous_rank": 2,
+        "rank_change": 1,
+        "weekly_points": 15,
+        "overall_points_after_week": 76,
+        "exact_count": 8,
+        "great_count": 8,
+        "close_count": 10
+      },
+      {
+        "user_id": "sim-rishi-sood",
+        "username": "Rishi Sood",
+        "favorite_club": "Manchester United",
+        "match_week": 5,
+        "current_rank": 2,
+        "previous_rank": 1,
+        "rank_change": -1,
+        "weekly_points": 9,
+        "overall_points_after_week": 68,
+        "exact_count": 6,
+        "great_count": 8,
+        "close_count": 10
+      },
+      {
+        "user_id": "sim-sood-labs",
+        "username": "SoodLabs",
+        "favorite_club": "Liverpool",
+        "match_week": 5,
+        "current_rank": 3,
+        "previous_rank": 3,
+        "rank_change": 0,
+        "weekly_points": 9,
+        "overall_points_after_week": 62,
+        "exact_count": 5,
+        "great_count": 7,
+        "close_count": 13
+      }
+    ]
+  }
+}
