@@ -10,6 +10,10 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.env
+.env.local
+.env.*.local
+.netlify
 *.local
 supabase/.temp/
 public/local-leaderboard-simulation.json
