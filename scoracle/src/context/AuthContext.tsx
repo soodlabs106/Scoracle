@@ -55,11 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       let profile = await fetchProfile(session.user.id)
 
-      if (profile && !profile.avatar_url) {
-        const providerAvatar = getProviderAvatarUrl(session.user.user_metadata)
-
-        if (providerAvatar) {
-          const { data: updatedProfile } = await supabase
+      // Always attempt to sync OAuth provider avatar
+      const providerAvatar = getProviderAvatarUrl(session.user)
+      if (providerAvatar && (!profile?.avatar_url || profile.avatar_url !== providerAvatar)) {
+        try {
+          const { data: updatedProfile, error: updateError } = await supabase
             .from('profiles')
             .update({
               avatar_url: providerAvatar,
@@ -71,7 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             )
             .maybeSingle()
 
-          profile = (updatedProfile as Profile | null) ?? profile
+          if (!updateError && updatedProfile) {
+            profile = updatedProfile as Profile
+          }
+        } catch (error) {
+          console.error('Failed to sync OAuth avatar:', error)
         }
       }
 
@@ -487,12 +491,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-function getProviderAvatarUrl(metadata: Record<string, unknown> | null | undefined) {
-  const avatarUrl = metadata?.avatar_url ?? metadata?.picture
+function getProviderAvatarUrl(user: NonNullable<AuthState['user']>) {
+  const metadataAvatar = getAvatarUrlFromMetadata(user.user_metadata)
 
-  return typeof avatarUrl === 'string' && avatarUrl.trim()
-    ? avatarUrl.trim()
-    : null
+  if (metadataAvatar) {
+    return metadataAvatar
+  }
+
+  for (const identity of user.identities ?? []) {
+    const identityAvatar = getAvatarUrlFromMetadata(identity.identity_data)
+
+    if (identityAvatar) {
+      return identityAvatar
+    }
+  }
+
+  return null
+}
+
+function getAvatarUrlFromMetadata(
+  metadata: Record<string, unknown> | null | undefined,
+) {
+  if (!metadata) {
+    return null
+  }
+
+  // Check multiple possible field names for avatar URL from different OAuth providers
+  // Google typically uses: picture, avatar_url
+  // GitHub uses: avatar_url
+  // Others might use different field names
+  const possibleFields = [
+    'picture',
+    'avatar_url',
+    'avatar',
+    'profile_picture',
+    'image_url',
+  ]
+
+  for (const field of possibleFields) {
+    const value = metadata[field]
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim()
+    }
+  }
+
+  // Also check nested user_image or similar patterns
+  const userImage = metadata.user_image
+  if (typeof userImage === 'string' && userImage.trim()) {
+    return userImage.trim()
+  }
+
+  return null
 }
 
 function toFriendlyAuthError(message: string) {
