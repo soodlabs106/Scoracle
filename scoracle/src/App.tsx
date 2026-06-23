@@ -9,6 +9,7 @@ import {
   Trash2,
   Trophy,
   UserRound,
+  X,
 } from 'lucide-react'
 import { ForgotPasswordModal } from './components/auth/ForgotPasswordModal'
 import { LoginModal } from './components/auth/LoginModal'
@@ -27,6 +28,7 @@ import {
   type Leader,
   type Team,
 } from './data/homeData'
+import { fetchTeamDetails, type TeamDetails } from './data/teamDetails'
 import {
   applyPredictionSimulationToHomeData,
   fetchSimulatedPredictionsForFixtures,
@@ -59,6 +61,13 @@ const MONTH_FORMATTER = new Intl.DateTimeFormat('en-IN', {
 
 type ModalKind = 'login' | 'signup' | 'forgot' | null
 type PredictionMessageTone = 'error' | 'success' | 'info'
+type TeamResult = {
+  fixtureId: string
+  result: 'W' | 'D' | 'L'
+  score: string
+  opponentName: string
+  kickoffUtc: string
+}
 
 function App() {
   const { profile, user } = useAuth()
@@ -93,6 +102,14 @@ function App() {
     tone: PredictionMessageTone
     text: string
   } | null>(null)
+  const [selectedTeamModalId, setSelectedTeamModalId] = useState<string | null>(
+    null,
+  )
+  const [teamDetailsById, setTeamDetailsById] = useState<
+    Map<string, TeamDetails>
+  >(new Map())
+  const [isTeamDetailsLoading, setIsTeamDetailsLoading] = useState(false)
+  const [teamDetailsError, setTeamDetailsError] = useState<string | null>(null)
 
   const teamsById = useMemo(
     () => new Map(homeData.teams.map((team) => [team.id, team])),
@@ -100,6 +117,20 @@ function App() {
   )
 
   const selectedClub = teamsById.get(selectedClubId)
+  const selectedModalTeam = selectedTeamModalId
+    ? teamsById.get(selectedTeamModalId)
+    : undefined
+  const selectedModalStanding = selectedTeamModalId
+    ? homeData.standings.find((standing) => standing.teamId === selectedTeamModalId)
+    : undefined
+  const selectedModalDetails = selectedTeamModalId
+    ? teamDetailsById.get(selectedTeamModalId)
+    : undefined
+  const selectedModalFallbackTopScorer = selectedTeamModalId
+    ? homeData.leaderboards.scorers.find(
+        (leader) => leader.teamId === selectedTeamModalId,
+      )
+    : undefined
 
   const matchweeks = useMemo(
     () =>
@@ -119,6 +150,18 @@ function App() {
         ),
       ).sort(),
     [homeData.fixtures],
+  )
+
+  const selectedModalRecentResults = useMemo(
+    () =>
+      selectedTeamModalId
+        ? getRecentTeamResults(
+            homeData.fixtures,
+            teamsById,
+            selectedTeamModalId,
+          )
+        : [],
+    [homeData.fixtures, selectedTeamModalId, teamsById],
   )
 
   const filteredFixtures = useMemo(
@@ -223,6 +266,55 @@ function App() {
       isMounted = false
     }
   }, [])
+
+  useEffect(() => {
+    if (!selectedTeamModalId || teamDetailsById.has(selectedTeamModalId)) {
+      return
+    }
+
+    let isMounted = true
+
+    Promise.resolve()
+      .then(() => {
+        if (!isMounted) {
+          return null
+        }
+
+        setIsTeamDetailsLoading(true)
+        setTeamDetailsError(null)
+        return fetchTeamDetails(
+          selectedTeamModalId,
+          teamsById.get(selectedTeamModalId)?.name,
+        )
+      })
+      .then((details) => {
+        if (!isMounted || !details) {
+          return
+        }
+
+        setTeamDetailsById((current) => {
+          const next = new Map(current)
+          next.set(selectedTeamModalId, details)
+          return next
+        })
+      })
+      .catch(() => {
+        if (!isMounted) {
+          return
+        }
+
+        setTeamDetailsError('Squad details are unavailable right now.')
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsTeamDetailsLoading(false)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [selectedTeamModalId, teamDetailsById, teamsById])
 
   useEffect(() => {
     if (!user || !activePredictionMatchweek) {
@@ -604,6 +696,7 @@ function App() {
               <StandingsTable
                 standings={homeData.standings}
                 teamsById={teamsById}
+                onTeamSelect={setSelectedTeamModalId}
               />
             </div>
           ) : null}
@@ -611,7 +704,11 @@ function App() {
 
         <aside className="hidden rounded-lg border border-[#DADADA] bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)] lg:block">
           <SectionTitle icon={<Trophy className="h-5 w-5" />} title="Table" />
-          <StandingsTable standings={homeData.standings} teamsById={teamsById} />
+          <StandingsTable
+            standings={homeData.standings}
+            teamsById={teamsById}
+            onTeamSelect={setSelectedTeamModalId}
+          />
         </aside>
 
         <section className="flex min-h-0 flex-col gap-4 self-start lg:sticky lg:top-5 lg:max-h-[calc(100vh-40px)]">
@@ -801,6 +898,7 @@ function App() {
                     onDeletePrediction={(prediction) =>
                       deletePrediction(fixture, prediction)
                     }
+                    onTeamSelect={setSelectedTeamModalId}
                   />
                 )
               })
@@ -852,6 +950,18 @@ function App() {
         <ForgotPasswordModal
           onClose={() => setModalKind(null)}
           onSwitchToLogin={() => setModalKind('login')}
+        />
+      ) : null}
+      {selectedTeamModalId && selectedModalTeam ? (
+        <TeamDetailsModal
+          team={selectedModalTeam}
+          standing={selectedModalStanding}
+          recentResults={selectedModalRecentResults}
+          details={selectedModalDetails}
+          fallbackTopScorer={selectedModalFallbackTopScorer}
+          isLoading={isTeamDetailsLoading}
+          error={teamDetailsError}
+          onClose={() => setSelectedTeamModalId(null)}
         />
       ) : null}
     </main>
@@ -958,9 +1068,11 @@ function ClubFilter({
 function StandingsTable({
   standings,
   teamsById,
+  onTeamSelect,
 }: {
   standings: HomeData['standings']
   teamsById: Map<string, Team>
+  onTeamSelect: (teamId: string) => void
 }) {
   return (
     <div className="mt-4 overflow-hidden rounded-lg border border-[#DADADA]">
@@ -987,12 +1099,16 @@ function StandingsTable({
                   {standing.position}
                 </td>
                 <td className="min-w-0 px-2 py-2">
-                  <div className="flex min-w-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onTeamSelect(standing.teamId)}
+                    className="flex min-w-0 items-center gap-2 text-left transition hover:text-[#03718a] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+                  >
                     <TeamBadge team={team} small />
                     <span className="font-semibold leading-tight">
                       {team?.name ?? 'TBC'}
                     </span>
-                  </div>
+                  </button>
                 </td>
                 <td className="px-1 py-2 text-center">{standing.played}</td>
                 <td className="px-1 py-2 text-center">{standing.won}</td>
@@ -1023,6 +1139,7 @@ function FixtureCard({
   deletingPredictionId,
   onPredictionChange,
   onDeletePrediction,
+  onTeamSelect,
 }: {
   fixture: Fixture
   teamsById: Map<string, Team>
@@ -1033,6 +1150,7 @@ function FixtureCard({
   deletingPredictionId?: string | null
   onPredictionChange?: (side: keyof PredictionDraft, value: string) => void
   onDeletePrediction?: (prediction: PredictionRow) => void
+  onTeamSelect: (teamId: string) => void
 }) {
   const homeTeam = teamsById.get(fixture.homeTeamId)
   const awayTeam = teamsById.get(fixture.awayTeamId)
@@ -1056,11 +1174,16 @@ function FixtureCard({
             team={homeTeam}
             score={fixture.homeScore}
             isHome
+            onTeamSelect={onTeamSelect}
           />
           <div className="text-center text-xs font-bold uppercase text-[#5f6664]">
             vs
           </div>
-          <FixtureTeamRow team={awayTeam} score={fixture.awayScore} />
+          <FixtureTeamRow
+            team={awayTeam}
+            score={fixture.awayScore}
+            onTeamSelect={onTeamSelect}
+          />
           <div
             className={`flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 ${
               predictionMode ? 'hidden lg:flex' : ''
@@ -1266,21 +1389,185 @@ function FixtureTeamRow({
   team,
   score,
   isHome = false,
+  onTeamSelect,
 }: {
   team?: Team
   score: number | null
   isHome?: boolean
+  onTeamSelect: (teamId: string) => void
 }) {
   return (
     <div className="grid min-h-14 w-full grid-cols-[minmax(0,1fr)_44px] items-center gap-3 rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 py-2">
-      <div className="flex min-w-0 items-center gap-3 text-left">
+      <button
+        type="button"
+        onClick={() => team && onTeamSelect(team.id)}
+        disabled={!team}
+        className="flex min-w-0 items-center gap-3 text-left transition hover:text-[#03718a] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20 disabled:cursor-default"
+      >
         <TeamBadge team={team} />
         <span className="min-w-0 flex-1 truncate text-left text-base font-semibold leading-snug">
           {team?.name ?? (isHome ? 'Home club' : 'Away club')}
         </span>
-      </div>
+      </button>
       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#DADADA]/60 text-sm font-bold">
         {score ?? '-'}
+      </div>
+    </div>
+  )
+}
+
+function TeamDetailsModal({
+  team,
+  standing,
+  recentResults,
+  details,
+  fallbackTopScorer,
+  isLoading,
+  error,
+  onClose,
+}: {
+  team: Team
+  standing?: HomeData['standings'][number]
+  recentResults: TeamResult[]
+  details?: TeamDetails
+  fallbackTopScorer?: Leader
+  isLoading: boolean
+  error: string | null
+  onClose: () => void
+}) {
+  const topScorer = details?.topScorer
+    ? `${details.topScorer.name} (${details.topScorer.goals})`
+    : fallbackTopScorer
+      ? `${fallbackTopScorer.playerName} (${fallbackTopScorer.value})`
+      : 'Unavailable'
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[#333333]/45 px-3 py-4 backdrop-blur-sm sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="team-details-title"
+    >
+      <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-lg border border-[#DADADA] bg-white shadow-[0_24px_80px_rgba(0,0,0,0.25)] motion-safe:animate-[modalIn_180ms_ease-out]">
+        <div className="flex items-start justify-between gap-4 border-b border-[#DADADA] bg-[#F9F9F9] p-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <TeamBadge team={team} />
+            <div className="min-w-0">
+              <h2
+                id="team-details-title"
+                className="truncate text-xl font-bold text-[#333333]"
+              >
+                {team.name}
+              </h2>
+              <p className="text-sm font-semibold text-[#5f6664]">
+                Position:{' '}
+                {standing?.position ? `#${standing.position}` : 'Unavailable'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#DADADA] bg-white text-[#333333] transition hover:bg-[#E8F4FA] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/25"
+            aria-label="Close team details"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="max-h-[calc(92vh-86px)] overflow-y-auto p-4">
+          <div className="grid gap-4 lg:grid-cols-[1fr_1.15fr]">
+            <section className="rounded-lg border border-[#DADADA] bg-white p-4">
+              <h3 className="text-sm font-bold uppercase text-[#03718a]">
+                Last 5 results
+              </h3>
+              {recentResults.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {recentResults.map((result) => (
+                    <div
+                      key={result.fixtureId}
+                      className="inline-flex items-center gap-2 rounded-full border border-[#DADADA] bg-[#F9F9F9] px-2.5 py-1.5"
+                    >
+                      <span
+                        className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-black ${resultBadgeClass(
+                          result.result,
+                        )}`}
+                      >
+                        {result.result}
+                      </span>
+                      <span className="hidden text-sm font-semibold text-[#333333] sm:inline">
+                        {result.score} vs {result.opponentName}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 rounded-lg border border-dashed border-[#DADADA] bg-[#F9F9F9] p-3 text-sm font-semibold text-[#5f6664]">
+                  No completed results available yet.
+                </p>
+              )}
+            </section>
+
+            <section className="rounded-lg border border-[#DADADA] bg-white p-4">
+              <h3 className="text-sm font-bold uppercase text-[#03718a]">
+                Current highest scorer
+              </h3>
+              <p className="mt-3 rounded-lg bg-[#E8F4FA] px-3 py-2 text-base font-bold text-[#333333]">
+                {topScorer}
+              </p>
+            </section>
+          </div>
+
+          <section className="mt-4 rounded-lg border border-[#DADADA] bg-white p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-bold uppercase text-[#03718a]">
+                Squad
+              </h3>
+              {isLoading ? (
+                <span className="text-xs font-semibold text-[#5f6664]">
+                  Loading...
+                </span>
+              ) : null}
+            </div>
+
+            {error ? (
+              <p className="mt-3 rounded-lg border border-[#F45B5B]/40 bg-[#F45B5B]/10 p-3 text-sm font-semibold text-[#8a2626]">
+                {error}
+              </p>
+            ) : null}
+
+            {!isLoading && !error && details?.squad.length ? (
+              <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {details.squad.map((player) => (
+                  <li
+                    key={player.id}
+                    className="rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 py-2 text-sm font-semibold text-[#333333]"
+                  >
+                    {player.name}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {!isLoading && !error && !details?.squad.length ? (
+              <p className="mt-3 rounded-lg border border-dashed border-[#DADADA] bg-[#F9F9F9] p-3 text-sm font-semibold text-[#5f6664]">
+                Squad list is not available yet.
+              </p>
+            ) : null}
+          </section>
+        </div>
       </div>
     </div>
   )
@@ -1461,6 +1748,57 @@ function getFixturePredictionDisplay(
     points: prediction.points ?? getPredictionPoints(closeness),
     predictionText: `${prediction.predicted_home_score} - ${prediction.predicted_away_score}`,
   }
+}
+
+function getRecentTeamResults(
+  fixtures: Fixture[],
+  teamsById: Map<string, Team>,
+  teamId: string,
+) {
+  return fixtures
+    .filter(
+      (fixture) =>
+        (fixture.homeTeamId === teamId || fixture.awayTeamId === teamId) &&
+        fixture.homeScore !== null &&
+        fixture.awayScore !== null,
+    )
+    .sort(
+      (first, second) =>
+        new Date(second.kickoffUtc).getTime() -
+        new Date(first.kickoffUtc).getTime(),
+    )
+    .slice(0, 5)
+    .map((fixture) => {
+      const isHome = fixture.homeTeamId === teamId
+      const teamScore = isHome ? fixture.homeScore ?? 0 : fixture.awayScore ?? 0
+      const opponentScore = isHome
+        ? fixture.awayScore ?? 0
+        : fixture.homeScore ?? 0
+      const opponentId = isHome ? fixture.awayTeamId : fixture.homeTeamId
+      const opponentName = teamsById.get(opponentId)?.shortName ?? 'TBC'
+      const result: TeamResult['result'] =
+        teamScore > opponentScore ? 'W' : teamScore < opponentScore ? 'L' : 'D'
+
+      return {
+        fixtureId: fixture.id,
+        result,
+        score: `${teamScore} - ${opponentScore}`,
+        opponentName,
+        kickoffUtc: fixture.kickoffUtc,
+      }
+    })
+}
+
+function resultBadgeClass(result: TeamResult['result']) {
+  if (result === 'W') {
+    return 'bg-[#E4FAF3] text-[#146b59]'
+  }
+
+  if (result === 'D') {
+    return 'bg-[#FFF4CC] text-[#7a5c00]'
+  }
+
+  return 'bg-[#FDE7E7] text-[#8a2626]'
 }
 
 function getPredictionDraftKey(fixture: Fixture) {

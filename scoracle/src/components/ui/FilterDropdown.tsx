@@ -86,7 +86,7 @@ export function FilterDropdown({
 
       {isOpen && !disabled ? (
         <div
-          className={`absolute z-20 mt-2 max-h-80 ${minMenuWidthClass} overflow-auto rounded-lg border border-[#DADADA] bg-white p-1 shadow-[0_8px_24px_rgba(0,0,0,0.14)]`}
+          className={`absolute z-20 mt-2 max-h-80 ${minMenuWidthClass} overflow-auto rounded-lg border border-[#DADADA] bg-white p-1 shadow-[0_8px_24px_rgba(0,0,0,0.14)] motion-safe:animate-[dropdownIn_140ms_ease-out]`}
         >
           {options.map((option) => (
             <button

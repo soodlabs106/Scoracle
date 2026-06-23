@@ -1,3 +1,4 @@
 /api/home-data    /.netlify/functions/home-data    200
+/api/team-details    /.netlify/functions/team-details    200
 /api/cache-oauth-avatar    /.netlify/functions/cache-oauth-avatar    200
 /*    /index.html   200

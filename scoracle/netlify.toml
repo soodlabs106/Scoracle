@@ -15,6 +15,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/team-details"
+  to = "/.netlify/functions/team-details"
+  status = 200
+
+[[redirects]]
   from = "/api/cache-oauth-avatar"
   to = "/.netlify/functions/cache-oauth-avatar"
   status = 200
