@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router'
 import {
   ArrowLeft,
   Camera,
+  ChevronDown,
   LockKeyhole,
   Pencil,
   Save,
@@ -11,6 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { Header } from '../components/layout/Header'
+import { FilterDropdown } from '../components/ui/FilterDropdown'
 import { useAuth } from '../context/useAuth'
 import { fetchHomeData, mockHomeData, type Team } from '../data/homeData'
 import {
@@ -99,7 +101,14 @@ export function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [avatarPath, setAvatarPath] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [isProfileDetailsOpen, setIsProfileDetailsOpen] = useState(false)
+  const [expandedHistoryWeeks, setExpandedHistoryWeeks] = useState<Set<number>>(
+    () => new Set(),
+  )
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null)
+  const [isFavoriteClubMenuOpen, setIsFavoriteClubMenuOpen] = useState(false)
+  const [isHistoryMatchweekMenuOpen, setIsHistoryMatchweekMenuOpen] =
+    useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -148,6 +157,18 @@ export function ProfilePage() {
     }
   }, [])
 
+  function applyHistory(nextHistory: HistoryItem[]) {
+    setHistory(nextHistory)
+
+    const latestMatchWeek = Array.from(
+      new Set(nextHistory.map((item) => item.prediction.match_week)),
+    ).sort((first, second) => second - first)[0]
+
+    setExpandedHistoryWeeks(
+      latestMatchWeek === undefined ? new Set() : new Set([latestMatchWeek]),
+    )
+  }
+
   useEffect(() => {
     if (!user) {
       return
@@ -168,7 +189,7 @@ export function ProfilePage() {
 
         if (simulatedHistory) {
           if (isMounted) {
-            setHistory(simulatedHistory)
+            applyHistory(simulatedHistory)
           }
           return
         }
@@ -194,7 +215,7 @@ export function ProfilePage() {
 
         if (predictionWeeks.length === 0) {
           if (isMounted) {
-            setHistory([])
+            applyHistory([])
           }
           return
         }
@@ -304,7 +325,7 @@ export function ProfilePage() {
           })
 
         if (isMounted) {
-          setHistory(rows)
+          applyHistory(rows)
         }
       } catch (caughtError) {
         if (isMounted) {
@@ -550,6 +571,20 @@ export function ProfilePage() {
     setAvatarUrl(URL.createObjectURL(file))
   }
 
+  function toggleHistoryWeek(matchWeek: number) {
+    setExpandedHistoryWeeks((current) => {
+      const next = new Set(current)
+
+      if (next.has(matchWeek)) {
+        next.delete(matchWeek)
+      } else {
+        next.add(matchWeek)
+      }
+
+      return next
+    })
+  }
+
   function handleInitiateDeletePrediction(item: HistoryItem) {
     if (
       isMatchweekLocked(item.prediction.match_week, history) ||
@@ -608,7 +643,7 @@ export function ProfilePage() {
       <Header onLogin={() => undefined} onSignup={() => undefined} />
 
       <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative mb-5 pr-12">
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#E8F4FA] text-[#3CC8A5]">
               <UserRound className="h-6 w-6" />
@@ -622,10 +657,11 @@ export function ProfilePage() {
           </div>
           <Link
             to="/"
-            className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-[#3CC8A5] bg-white px-4 text-sm font-semibold text-[#3CC8A5] transition hover:bg-[#3CC8A5]/10"
+            className="absolute right-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#3CC8A5] bg-white text-[#3CC8A5] transition hover:bg-[#3CC8A5]/10"
+            aria-label="Back to predictions"
+            title="Back to predictions"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to predictions
           </Link>
         </div>
 
@@ -642,30 +678,57 @@ export function ProfilePage() {
                   <p className="mt-1 text-sm font-semibold text-[#5f6664]">
                     {profile.email}
                   </p>
-                  <span className="mt-2 inline-flex rounded-full border border-[#3CC8A5]/40 bg-[#E4FAF3] px-3 py-1 text-xs font-bold text-[#02745d]">
-                    Overall Rank: {formatRank(overallRank)}
-                  </span>
                 </div>
               </div>
               {!isEditing ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditing(true)
-                    setMessage(null)
-                    setError(null)
-                  }}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#333333] transition hover:bg-[#E8F4FA]"
-                  aria-label="Edit profile"
-                  title="Edit profile"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditing(true)
+                      setMessage(null)
+                      setError(null)
+                    }}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#333333] transition hover:bg-[#E8F4FA]"
+                    aria-label="Edit profile"
+                    title="Edit profile"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsProfileDetailsOpen((value) => !value)}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#333333] transition hover:bg-[#E8F4FA]"
+                    aria-label={
+                      isProfileDetailsOpen
+                        ? 'Hide profile details'
+                        : 'Show profile details'
+                    }
+                    aria-expanded={isProfileDetailsOpen}
+                    title={
+                      isProfileDetailsOpen
+                        ? 'Hide profile details'
+                        : 'Show profile details'
+                    }
+                  >
+                    <ChevronDown
+                      className={`h-4 w-4 transition ${
+                        isProfileDetailsOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+                </div>
               ) : null}
             </div>
 
             {!isEditing ? (
-              <div className="mt-5 space-y-3">
+              <div
+                className={`mt-5 space-y-3 ${isProfileDetailsOpen ? '' : 'hidden'}`}
+              >
+                <ProfileValue
+                  label="Overall rank"
+                  value={formatRank(overallRank)}
+                />
                 <ProfileValue label="Username" value={profile.username} />
                 <ProfileValue label="Email ID" value={profile.email} />
                 <ProfileValue
@@ -743,21 +806,49 @@ export function ProfilePage() {
 
                 <ReadOnlyField label="Email ID" value={profile.email} />
 
-                <label className="mt-4 block text-sm font-semibold text-[#333333]">
-                  Favorite club
-                  <select
-                    value={favoriteClub}
-                    onChange={(event) => setFavoriteClub(event.target.value)}
-                    className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] bg-white px-3 text-base focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
-                  >
-                    <option value="">Choose a club</option>
-                    {clubs.map((club) => (
-                      <option key={club.id} value={club.name}>
-                        {club.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="mt-4">
+                  <FilterDropdown
+                    label="Favorite club"
+                    selectedValue={favoriteClub}
+                    selectedLabel={favoriteClub || 'Choose a club'}
+                    isOpen={isFavoriteClubMenuOpen}
+                    options={[
+                      { value: '', label: 'Choose a club' },
+                      ...clubs.map((club) => ({
+                        value: club.name,
+                        label: club.name,
+                      })),
+                    ]}
+                    onOpenChange={setIsFavoriteClubMenuOpen}
+                    onSelect={setFavoriteClub}
+                    renderSelected={() => {
+                      const selectedClub = clubs.find(
+                        (club) => club.name === favoriteClub,
+                      )
+
+                      return (
+                        <span className="flex min-w-0 items-center gap-2">
+                          <ClubCrest team={selectedClub} />
+                          <span className="truncate">
+                            {favoriteClub || 'Choose a club'}
+                          </span>
+                        </span>
+                      )
+                    }}
+                    renderOption={(option) => {
+                      const optionClub = clubs.find(
+                        (club) => club.name === option.value,
+                      )
+
+                      return (
+                        <span className="flex min-w-0 items-center gap-2">
+                          <ClubCrest team={optionClub} />
+                          <span className="truncate">{option.label}</span>
+                        </span>
+                      )
+                    }}
+                  />
+                </div>
               </div>
             )}
 
@@ -803,23 +894,32 @@ export function ProfilePage() {
                   Grouped by match week with scored results when available.
                 </p>
               </div>
-              <label className="grid gap-1 text-xs font-semibold uppercase text-[#5f6664]">
-                Match week
-                <select
-                  value={selectedHistoryMatchweek}
-                  onChange={(event) =>
-                    setSelectedHistoryMatchweek(event.target.value)
+              <div className="w-full sm:w-44">
+                <FilterDropdown
+                  label="Match week"
+                  selectedValue={selectedHistoryMatchweek}
+                  selectedLabel={
+                    selectedHistoryMatchweek === 'all'
+                      ? 'All'
+                      : `Match week ${selectedHistoryMatchweek}`
                   }
-                  className="h-10 rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 text-sm font-semibold normal-case text-[#333333] focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
-                >
-                  <option value="all">All match weeks</option>
-                  {historyMatchweeks.map((matchweek) => (
-                    <option key={matchweek} value={matchweek}>
-                      MW {matchweek}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  isOpen={isHistoryMatchweekMenuOpen}
+                  options={[
+                    { value: 'all', label: 'All' },
+                    ...historyMatchweeks.map((matchweek) => ({
+                      value: matchweek.toString(),
+                      label: `Match week ${matchweek}`,
+                    })),
+                  ]}
+                  onOpenChange={setIsHistoryMatchweekMenuOpen}
+                  onSelect={(nextMatchweek) => {
+                    setSelectedHistoryMatchweek(nextMatchweek)
+                    if (nextMatchweek !== 'all') {
+                      setExpandedHistoryWeeks(new Set([Number(nextMatchweek)]))
+                    }
+                  }}
+                />
+              </div>
             </div>
 
             {isHistoryLoading ? (
@@ -835,113 +935,148 @@ export function ProfilePage() {
             ) : null}
 
             <div className="mt-4 space-y-5">
-              {groupedHistory.map(([matchWeek, items]) => (
-                <div key={matchWeek}>
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <h4 className="text-sm font-bold uppercase text-[#03718a]">
-                      Match Week {matchWeek}
-                    </h4>
-                    <span className="text-sm font-bold text-[#333333]">
-                      Rank: {formatRank(matchweekRanks[matchWeek] ?? null)}
-                    </span>
-                  </div>
-                  <div className="overflow-hidden rounded-lg border border-[#DADADA]">
-                    <table className="w-full table-fixed text-left text-xs">
-                      <thead className="bg-[#E8F4FA] text-xs uppercase text-[#5f6664]">
-                        <tr>
-                          <th className="w-[28%] px-2 py-2">Fixture</th>
-                          <th className="w-[15%] px-2 py-2">Pred</th>
-                          <th className="w-[13%] px-2 py-2">Actual</th>
-                          <th className="w-[21%] px-2 py-2">Call</th>
-                          <th className="w-[10%] px-2 py-2 text-right">Pts</th>
-                          <th className="w-[13%] px-2 py-2 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#DADADA]">
-                        {items.map((item) => {
-                          const closeness =
-                            item.prediction.closeness ?? 'NOT_SCORED'
-                          const display = getPredictionClosenessDisplay(
-                            closeness as PredictionCloseness,
-                          )
-                          const isPendingResult = !hasActualResult(item.fixture)
-                          const isLocked = isMatchweekLocked(
-                            item.prediction.match_week,
-                            history,
-                          ) || hasActualResult(item.fixture)
+              {groupedHistory.map(([matchWeek, items]) => {
+                const isExpanded = expandedHistoryWeeks.has(matchWeek)
 
-                          return (
-                            <tr key={item.prediction.id}>
-                              <td className="px-3 py-3 font-semibold">
-                                <FixtureLabel item={item} />
-                              </td>
-                              <td className="px-2 py-3">
-                                <span
-                                  className={`inline-flex whitespace-nowrap rounded-lg border px-2 py-1 font-bold ${
-                                    isPendingResult
-                                      ? 'border-[#F59E0B]'
-                                      : 'border-transparent'
-                                  }`}
-                                >
-                                  {item.prediction.predicted_home_score} -{' '}
-                                  {item.prediction.predicted_away_score}
-                                </span>
-                              </td>
-                              <td className="px-2 py-3 whitespace-nowrap">
-                                {formatActualResult(item.fixture)}
-                              </td>
-                              <td className="px-2 py-3">
-                                {isPendingResult ? (
-                                  <span className="inline-flex whitespace-nowrap rounded-full border border-[#F59E0B] bg-white px-2 py-1 text-xs font-bold text-[#8a5a00]">
-                                    TBP
-                                  </span>
-                                ) : (
+                return (
+                  <div
+                    key={matchWeek}
+                    className="overflow-hidden rounded-lg border border-[#DADADA]"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleHistoryWeek(matchWeek)}
+                      className="flex w-full items-center justify-between gap-3 bg-white px-3 py-3 text-left"
+                      aria-expanded={isExpanded}
+                    >
+                      <span className="text-sm font-bold uppercase text-[#03718a]">
+                        Match Week {matchWeek}
+                      </span>
+                      <span className="inline-flex items-center gap-2 text-sm font-bold text-[#333333]">
+                        Rank: {formatRank(matchweekRanks[matchWeek] ?? null)}
+                        <ChevronDown
+                          className={`h-4 w-4 transition ${
+                            isExpanded ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </span>
+                    </button>
+
+                    {isExpanded ? (
+                      <table className="w-full table-fixed text-left text-[11px] sm:text-xs">
+                        <thead className="bg-[#E8F4FA] text-[10px] uppercase text-[#5f6664] sm:text-xs">
+                          <tr>
+                            <th className="w-[21%] px-1.5 py-2 sm:px-2">
+                              Fixture
+                            </th>
+                            <th className="w-[17%] px-1.5 py-2 sm:px-2">
+                              Pred
+                            </th>
+                            <th className="w-[17%] px-1.5 py-2 sm:px-2">
+                              Actual
+                            </th>
+                            <th className="w-[18%] px-1.5 py-2 sm:px-2">
+                              Call
+                            </th>
+                            <th className="w-[10%] px-1.5 py-2 text-right sm:px-2">
+                              Pts
+                            </th>
+                            <th className="w-[17%] px-1.5 py-2 text-right sm:px-2">
+                              <span className="hidden sm:inline">Action</span>
+                              <span className="sm:hidden">Act</span>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#DADADA]">
+                          {items.map((item) => {
+                            const closeness =
+                              item.prediction.closeness ?? 'NOT_SCORED'
+                            const display = getPredictionClosenessDisplay(
+                              closeness as PredictionCloseness,
+                            )
+                            const isPendingResult = !hasActualResult(item.fixture)
+                            const isLocked =
+                              isMatchweekLocked(
+                                item.prediction.match_week,
+                                history,
+                              ) || hasActualResult(item.fixture)
+
+                            return (
+                              <tr key={item.prediction.id}>
+                                <td className="px-1.5 py-3 font-semibold sm:px-2">
+                                  <FixtureLabel item={item} />
+                                </td>
+                                <td className="px-1.5 py-3 sm:px-2">
                                   <span
-                                    className="inline-flex whitespace-nowrap rounded-full px-2 py-1 text-xs font-bold"
-                                    style={{
-                                      backgroundColor: display.backgroundColor,
-                                      color: display.textColor,
-                                    }}
+                                    className={`inline-flex whitespace-nowrap rounded-lg border px-1.5 py-1 text-sm font-bold sm:px-2 sm:text-base ${
+                                      isPendingResult
+                                        ? 'border-[#F59E0B]'
+                                        : 'border-transparent'
+                                    }`}
                                   >
-                                    {display.label}
+                                    {item.prediction.predicted_home_score} -{' '}
+                                    {item.prediction.predicted_away_score}
                                   </span>
-                                )}
-                              </td>
-                              <td className="px-2 py-3 text-right font-bold">
-                                {item.prediction.points}
-                              </td>
-                              <td className="px-2 py-3 text-right">
-                                {isLocked ? (
-                                  <span
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#F45B5B]/10 text-[#8a2626]"
-                                    aria-label="Prediction locked"
-                                    title="Predictions locked"
-                                  >
-                                    <LockKeyhole className="h-4 w-4" />
-                                  </span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleInitiateDeletePrediction(item)}
-                                    disabled={
-                                      deletingPredictionId === item.prediction.id
-                                    }
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#F45B5B]/45 text-[#8a2626] transition hover:bg-[#F45B5B]/10 disabled:cursor-not-allowed disabled:border-[#DADADA] disabled:text-[#5f6664]"
-                                    aria-label="Delete prediction"
-                                    title="Delete prediction"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
+                                </td>
+                                <td className="whitespace-nowrap px-1.5 py-3 text-sm font-bold sm:px-2 sm:text-base">
+                                  {formatActualResult(item.fixture)}
+                                </td>
+                                <td className="px-1.5 py-3 sm:px-2">
+                                  {isPendingResult ? (
+                                    <span className="inline-flex whitespace-nowrap rounded-full border border-[#F59E0B] bg-white px-2 py-1 text-[10px] font-bold text-[#8a5a00] sm:text-xs">
+                                      TBP
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="inline-flex whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-bold sm:text-xs"
+                                      style={{
+                                        backgroundColor: display.backgroundColor,
+                                        color: display.textColor,
+                                      }}
+                                    >
+                                      {display.label}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-1.5 py-3 text-right font-bold sm:px-2">
+                                  {item.prediction.points}
+                                </td>
+                                <td className="px-1.5 py-3 text-right sm:px-2">
+                                  {isLocked ? (
+                                    <span
+                                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#F45B5B]/10 text-[#8a2626]"
+                                      aria-label="Prediction locked"
+                                      title="Predictions locked"
+                                    >
+                                      <LockKeyhole className="h-4 w-4" />
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleInitiateDeletePrediction(item)
+                                      }
+                                      disabled={
+                                        deletingPredictionId ===
+                                        item.prediction.id
+                                      }
+                                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#F45B5B]/45 text-[#8a2626] transition hover:bg-[#F45B5B]/10 disabled:cursor-not-allowed disabled:border-[#DADADA] disabled:text-[#5f6664]"
+                                      aria-label="Delete prediction"
+                                      title="Delete prediction"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    ) : null}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </section>
         </div>
@@ -1014,20 +1149,24 @@ function FixtureLabel({ item }: { item: HistoryItem }) {
 
   return (
     <span
-      className="inline-grid grid-cols-[20px_32px_16px_20px_32px] items-center gap-1 whitespace-nowrap"
+      className="inline-flex flex-col items-center gap-0.5 whitespace-nowrap lg:inline-grid lg:grid-cols-[20px_32px_16px_20px_32px] lg:gap-1"
       title={`${item.homeTeam ?? 'Home'} vs ${item.awayTeam ?? 'Away'}`}
     >
-      <ClubMiniCrest
-        crestUrl={item.homeTeamCrestUrl}
-        label={item.homeTeam ?? 'Home'}
-      />
-      <span className="font-bold tracking-normal">{homeCode}</span>
+      <span className="inline-flex items-center gap-1 lg:contents">
+        <ClubMiniCrest
+          crestUrl={item.homeTeamCrestUrl}
+          label={item.homeTeam ?? 'Home'}
+        />
+        <span className="font-bold tracking-normal">{homeCode}</span>
+      </span>
       <span className="text-center text-[#5f6664]">vs</span>
-      <ClubMiniCrest
-        crestUrl={item.awayTeamCrestUrl}
-        label={item.awayTeam ?? 'Away'}
-      />
-      <span className="font-bold tracking-normal">{awayCode}</span>
+      <span className="inline-flex items-center gap-1 lg:contents">
+        <ClubMiniCrest
+          crestUrl={item.awayTeamCrestUrl}
+          label={item.awayTeam ?? 'Away'}
+        />
+        <span className="font-bold tracking-normal">{awayCode}</span>
+      </span>
     </span>
   )
 }

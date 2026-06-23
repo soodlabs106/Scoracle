@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, Navigate } from 'react-router'
 import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
+  ChevronDown,
   Medal,
   Minus,
   Trophy,
 } from 'lucide-react'
 import { Header } from '../components/layout/Header'
+import { FilterDropdown } from '../components/ui/FilterDropdown'
 import { useAuth } from '../context/useAuth'
 import {
   fetchMatchWeekLeaderboard,
@@ -29,15 +31,18 @@ type WeeklyDisplayRow = MatchWeekLeaderboardRow & {
 }
 
 export function LeaderboardPage() {
-  const { user, isLoading } = useAuth()
+  const { user, profile, isLoading } = useAuth()
   const [activeTab, setActiveTab] = useState<ActiveTab>('overall')
   const [overallRows, setOverallRows] = useState<LeaderboardRow[]>([])
   const [weeklyRows, setWeeklyRows] = useState<WeeklyDisplayRow[]>([])
   const [rankTimelineRows, setRankTimelineRows] = useState<RankMovementRow[]>([])
   const [scoredMatchWeeks, setScoredMatchWeeks] = useState<number[]>([])
   const [selectedMatchWeek, setSelectedMatchWeek] = useState<number | null>(null)
+  const [isMatchWeekMenuOpen, setIsMatchWeekMenuOpen] = useState(false)
   const [isOverallLoading, setIsOverallLoading] = useState(false)
   const [isWeeklyLoading, setIsWeeklyLoading] = useState(false)
+  const [isRankingOpen, setIsRankingOpen] = useState(true)
+  const [isGraphOpen, setIsGraphOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -172,7 +177,7 @@ export function LeaderboardPage() {
       <Header onLogin={() => undefined} onSignup={() => undefined} />
 
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative mb-5 pr-12">
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#E8F4FA] text-[#3CC8A5]">
               <Trophy className="h-6 w-6" />
@@ -186,10 +191,11 @@ export function LeaderboardPage() {
           </div>
           <Link
             to="/"
-            className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-[#3CC8A5] bg-white px-4 text-sm font-semibold text-[#3CC8A5] transition hover:bg-[#3CC8A5]/10"
+            className="absolute right-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#3CC8A5] bg-white text-[#3CC8A5] transition hover:bg-[#3CC8A5]/10"
+            aria-label="Back to predictions"
+            title="Back to predictions"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to predictions
           </Link>
         </div>
 
@@ -214,58 +220,67 @@ export function LeaderboardPage() {
           </div>
 
           {activeTab === 'matchweek' ? (
-            <label className="grid gap-1 text-left text-xs font-semibold uppercase text-[#5f6664]">
-              Match week
-              <select
-                value={selectedMatchWeek ?? ''}
-                onChange={(event) =>
-                  setSelectedMatchWeek(Number(event.target.value))
+            <div className="w-full sm:w-44">
+              <FilterDropdown
+                label="Match week"
+                selectedValue={selectedMatchWeek?.toString() ?? ''}
+                selectedLabel={
+                  selectedMatchWeek === null ? 'No scored weeks' : `MW ${selectedMatchWeek}`
                 }
+                isOpen={isMatchWeekMenuOpen}
                 disabled={scoredMatchWeeks.length === 0}
-                className="h-10 min-w-44 rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 text-sm font-semibold normal-case text-[#333333] focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20 disabled:opacity-60"
-              >
-                {scoredMatchWeeks.length === 0 ? (
-                  <option value="">No scored weeks</option>
-                ) : null}
-                {scoredMatchWeeks.map((matchWeek) => (
-                  <option key={matchWeek} value={matchWeek}>
-                    MW {matchWeek}
-                  </option>
-                ))}
-              </select>
-            </label>
+                options={
+                  scoredMatchWeeks.length === 0
+                    ? [{ value: '', label: 'No scored weeks', disabled: true }]
+                    : scoredMatchWeeks.map((matchWeek) => ({
+                        value: matchWeek.toString(),
+                        label: `MW ${matchWeek}`,
+                      }))
+                }
+                onOpenChange={setIsMatchWeekMenuOpen}
+                onSelect={(value) => setSelectedMatchWeek(Number(value))}
+              />
+            </div>
           ) : null}
         </div>
 
         {activeTab === 'overall' ? (
           <>
-            <RankTimelineChart
-              rows={rankTimelineRows}
-              users={overallRows}
-              matchWeeks={scoredMatchWeeks}
-            />
             <UserSummary
               label="Your overall rank"
               row={currentOverallRow}
               rows={overallRows}
               pointsLabel="Pts"
             />
-            <LeaderboardTable
-              rows={overallRows}
-              currentUserId={user.id}
-              isLoading={isOverallLoading}
-              emptyMessage="No leaderboard yet. Scores will appear after the first match week is completed and predictions are scored."
-              pointsHeader="Pts"
-              getPoints={(row) => row.total_points}
-            />
+            <MobileAccordionSection
+              title="Ranking table"
+              isOpen={isRankingOpen}
+              onToggle={() => setIsRankingOpen((value) => !value)}
+            >
+              <LeaderboardTable
+                rows={overallRows}
+                currentUserId={user.id}
+                currentUsername={profile?.username ?? null}
+                isLoading={isOverallLoading}
+                emptyMessage="No leaderboard yet. Scores will appear after the first match week is completed and predictions are scored."
+                pointsHeader="Pts"
+                getPoints={(row) => row.total_points}
+              />
+            </MobileAccordionSection>
+            <MobileAccordionSection
+              title="Rank movement"
+              isOpen={isGraphOpen}
+              onToggle={() => setIsGraphOpen((value) => !value)}
+            >
+              <RankTimelineChart
+                rows={rankTimelineRows}
+                users={overallRows}
+                matchWeeks={scoredMatchWeeks}
+              />
+            </MobileAccordionSection>
           </>
         ) : (
           <>
-            <RankTimelineChart
-              rows={rankTimelineRows}
-              users={overallRows}
-              matchWeeks={scoredMatchWeeks}
-            />
             <UserSummary
               label={`Your MW ${selectedMatchWeek ?? '-'} rank`}
               row={currentWeeklyRow}
@@ -273,19 +288,37 @@ export function LeaderboardPage() {
               pointsLabel="Weekly pts"
               isWeekly
             />
-            <LeaderboardTable
-              rows={weeklyRows}
-              currentUserId={user.id}
-              isLoading={isWeeklyLoading}
-              emptyMessage={
-                scoredMatchWeeks.length === 0
-                  ? 'No leaderboard yet. Scores will appear after the first match week is completed and predictions are scored.'
-                  : 'No scored predictions for this match week yet.'
-              }
-              pointsHeader="Weekly pts"
-              getPoints={(row) => row.total_points}
-              showMovement
-            />
+            <MobileAccordionSection
+              title="Ranking table"
+              isOpen={isRankingOpen}
+              onToggle={() => setIsRankingOpen((value) => !value)}
+            >
+              <LeaderboardTable
+                rows={weeklyRows}
+                currentUserId={user.id}
+                currentUsername={profile?.username ?? null}
+                isLoading={isWeeklyLoading}
+                emptyMessage={
+                  scoredMatchWeeks.length === 0
+                    ? 'No leaderboard yet. Scores will appear after the first match week is completed and predictions are scored.'
+                    : 'No scored predictions for this match week yet.'
+                }
+                pointsHeader="Weekly pts"
+                getPoints={(row) => row.total_points}
+                showMovement
+              />
+            </MobileAccordionSection>
+            <MobileAccordionSection
+              title="Rank movement"
+              isOpen={isGraphOpen}
+              onToggle={() => setIsGraphOpen((value) => !value)}
+            >
+              <RankTimelineChart
+                rows={rankTimelineRows}
+                users={overallRows}
+                matchWeeks={scoredMatchWeeks}
+              />
+            </MobileAccordionSection>
           </>
         )}
       </section>
@@ -306,9 +339,9 @@ function RankTimelineChart({
   const usersById = new Map(users.map((user) => [user.user_id, user]))
   const userIds = users.map((user) => user.user_id)
   const maxRank = Math.max(3, users.length)
-  const width = 820
-  const height = 320
-  const padding = { top: 28, right: 34, bottom: 48, left: 64 }
+  const width = 680
+  const height = 300
+  const padding = { top: 28, right: 28, bottom: 46, left: 54 }
   const plotWidth = width - padding.left - padding.right
   const plotHeight = height - padding.top - padding.bottom
   const colors = ['#F45B5B', '#3CC8A5', '#4DB7E8', '#8a5a00', '#5f6664']
@@ -365,7 +398,7 @@ function RankTimelineChart({
 
       <div className="mt-4 overflow-x-auto">
         <div
-          className="relative min-w-[820px]"
+          className="relative min-w-[640px]"
           style={{ width, height }}
           aria-label="Rank movement line graph"
         >
@@ -514,6 +547,37 @@ function RankTimelineChart({
   )
 }
 
+function MobileAccordionSection({
+  title,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  title: string
+  isOpen: boolean
+  onToggle: () => void
+  children: ReactNode
+}) {
+  return (
+    <section className="mb-4">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between rounded-lg border border-[#DADADA] bg-white px-3 py-3 text-left text-sm font-bold text-[#333333] shadow-[0_4px_12px_rgba(0,0,0,0.06)] lg:hidden"
+        aria-expanded={isOpen}
+      >
+        {title}
+        <ChevronDown
+          className={`h-4 w-4 transition ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </button>
+      <div className={`${isOpen ? 'mt-3 block' : 'hidden'} lg:mt-0 lg:block`}>
+        {children}
+      </div>
+    </section>
+  )
+}
+
 function ChartAvatar({ user }: { user: LeaderboardRow }) {
   if (user.avatar_url) {
     return (
@@ -539,6 +603,10 @@ function initials(value: string) {
     .join('')
     .slice(0, 2)
     .toUpperCase()
+}
+
+function normalizeLeaderboardUsername(username: string) {
+  return username.toLowerCase().replace(/\s+/g, '')
 }
 
 function TabButton({
@@ -612,6 +680,7 @@ function SummaryValue({ label, value }: { label: string; value: string }) {
 function LeaderboardTable<T extends LeaderboardRow | WeeklyDisplayRow>({
   rows,
   currentUserId,
+  currentUsername,
   isLoading,
   emptyMessage,
   pointsHeader,
@@ -620,6 +689,7 @@ function LeaderboardTable<T extends LeaderboardRow | WeeklyDisplayRow>({
 }: {
   rows: T[]
   currentUserId: string
+  currentUsername: string | null
   isLoading: boolean
   emptyMessage: string
   pointsHeader: string
@@ -636,32 +706,51 @@ function LeaderboardTable<T extends LeaderboardRow | WeeklyDisplayRow>({
 
   return (
     <section className="overflow-hidden rounded-lg border border-[#DADADA] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-sm">
-          <thead className="bg-[#E8F4FA] text-xs uppercase text-[#5f6664]">
+      <div className="overflow-hidden">
+        <table className="w-full table-fixed text-left text-xs sm:text-sm">
+          <thead className="bg-[#E8F4FA] text-[10px] uppercase text-[#5f6664] sm:text-xs">
             <tr>
-              <th className="px-3 py-3">Rank</th>
-              <th className="px-3 py-3">User</th>
-              <th className="px-3 py-3">Favorite club</th>
-              <th className="px-3 py-3 text-right">{pointsHeader}</th>
-              <th className="px-3 py-3 text-right">Exact</th>
-              <th className="px-3 py-3 text-right">Great</th>
-              <th className="px-3 py-3 text-right">Close</th>
-              <th className="px-3 py-3 text-right">Played</th>
+              <th className="w-[22%] px-1.5 py-3 sm:px-3">Rank</th>
+              <th className="w-[29%] px-1.5 py-3 sm:px-3">User</th>
+              <th className="hidden w-[20%] px-3 py-3 md:table-cell">
+                Favorite club
+              </th>
+              <th className="w-[14%] px-1.5 py-3 text-right sm:px-3">
+                {pointsHeader}
+              </th>
+              <th className="w-[11%] px-1.5 py-3 text-right sm:px-3">
+                <span className="hidden sm:inline">Exact</span>
+                <span className="sm:hidden">Ex</span>
+              </th>
+              <th className="w-[11%] px-1.5 py-3 text-right sm:px-3">
+                <span className="hidden sm:inline">Great</span>
+                <span className="sm:hidden">Gr</span>
+              </th>
+              <th className="w-[13%] px-1.5 py-3 text-right sm:px-3">
+                <span className="hidden sm:inline">Close</span>
+                <span className="sm:hidden">Cl</span>
+              </th>
+              <th className="hidden w-[10%] px-3 py-3 text-right sm:table-cell">
+                Played
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#DADADA]">
             {rows.map((row, index) => {
               const rank = index + 1
-              const isCurrentUser = row.user_id === currentUserId
+              const isCurrentUser =
+                row.user_id === currentUserId ||
+                (currentUsername !== null &&
+                  normalizeLeaderboardUsername(row.username) ===
+                    normalizeLeaderboardUsername(currentUsername))
 
               return (
                 <tr
                   key={`${row.user_id}-${rank}`}
                   className={isCurrentUser ? 'bg-[#FFF4CC]/55' : 'bg-white'}
                 >
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-2">
+                  <td className="px-1.5 py-3 sm:px-3">
+                    <div className="flex items-center gap-1 sm:gap-2">
                       <RankBadge rank={rank} />
                       {showMovement ? (
                         <MovementBadge
@@ -670,23 +759,25 @@ function LeaderboardTable<T extends LeaderboardRow | WeeklyDisplayRow>({
                       ) : null}
                     </div>
                   </td>
-                  <td className="px-3 py-3 font-bold">{row.username}</td>
-                  <td className="px-3 py-3 font-semibold text-[#5f6664]">
+                  <td className="truncate px-1.5 py-3 font-bold sm:px-3">
+                    {row.username}
+                  </td>
+                  <td className="hidden px-3 py-3 font-semibold text-[#5f6664] md:table-cell">
                     {row.favorite_club ?? 'Not selected'}
                   </td>
-                  <td className="px-3 py-3 text-right text-lg font-bold text-[#F45B5B]">
+                  <td className="px-1.5 py-3 text-right text-sm font-bold text-[#F45B5B] sm:px-3 sm:text-lg">
                     {getPoints(row)}
                   </td>
-                  <td className="px-3 py-3 text-right">
+                  <td className="px-1.5 py-3 text-right sm:px-3">
                     <StatBadge value={row.exact_count} tone="gold" />
                   </td>
-                  <td className="px-3 py-3 text-right">
+                  <td className="px-1.5 py-3 text-right sm:px-3">
                     <StatBadge value={row.great_count} tone="green" />
                   </td>
-                  <td className="px-3 py-3 text-right">
+                  <td className="px-1.5 py-3 text-right sm:px-3">
                     <StatBadge value={row.close_count} tone="blue" />
                   </td>
-                  <td className="px-3 py-3 text-right font-semibold">
+                  <td className="hidden px-3 py-3 text-right font-semibold sm:table-cell">
                     {row.scored_predictions}
                   </td>
                 </tr>
@@ -711,9 +802,9 @@ function RankBadge({ rank }: { rank: number }) {
 
   return (
     <span
-      className={`inline-flex h-8 min-w-10 items-center justify-center gap-1 rounded-full border px-2 text-sm font-bold ${rankTone}`}
+      className={`inline-flex h-7 min-w-8 items-center justify-center gap-1 rounded-full border px-1.5 text-xs font-bold sm:h-8 sm:min-w-10 sm:px-2 sm:text-sm ${rankTone}`}
     >
-      {rank <= 3 ? <Medal className="h-4 w-4" /> : null}
+      {rank <= 3 ? <Medal className="hidden h-4 w-4 sm:block" /> : null}
       {rank}
     </span>
   )
@@ -722,7 +813,7 @@ function RankBadge({ rank }: { rank: number }) {
 function MovementBadge({ movement }: { movement?: RankMovementRow }) {
   if (!movement || movement.previous_rank === null) {
     return (
-      <span className="rounded-full bg-[#E8F4FA] px-2 py-1 text-xs font-bold text-[#03718a]">
+      <span className="rounded-full bg-[#E8F4FA] px-1.5 py-1 text-[10px] font-bold text-[#03718a] sm:px-2 sm:text-xs">
         New
       </span>
     )
@@ -730,7 +821,7 @@ function MovementBadge({ movement }: { movement?: RankMovementRow }) {
 
   if (!movement.rank_change) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-[#F1F1F1] px-2 py-1 text-xs font-bold text-[#5f6664]">
+      <span className="inline-flex items-center gap-1 rounded-full bg-[#F1F1F1] px-1.5 py-1 text-[10px] font-bold text-[#5f6664] sm:px-2 sm:text-xs">
         <Minus className="h-3 w-3" />
       </span>
     )
@@ -738,7 +829,7 @@ function MovementBadge({ movement }: { movement?: RankMovementRow }) {
 
   if (movement.rank_change > 0) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-[#E4FAF3] px-2 py-1 text-xs font-bold text-[#146b59]">
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-[#E4FAF3] px-1.5 py-1 text-[10px] font-bold text-[#146b59] sm:gap-1 sm:px-2 sm:text-xs">
         <ArrowUp className="h-3 w-3" />
         {movement.rank_change}
       </span>
@@ -746,7 +837,7 @@ function MovementBadge({ movement }: { movement?: RankMovementRow }) {
   }
 
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-[#FDE7E7] px-2 py-1 text-xs font-bold text-[#8a2626]">
+    <span className="inline-flex items-center gap-0.5 rounded-full bg-[#FDE7E7] px-1.5 py-1 text-[10px] font-bold text-[#8a2626] sm:gap-1 sm:px-2 sm:text-xs">
       <ArrowDown className="h-3 w-3" />
       {Math.abs(movement.rank_change)}
     </span>
@@ -768,7 +859,7 @@ function StatBadge({
 
   return (
     <span
-      className={`inline-flex min-w-8 justify-center rounded-full px-2 py-1 text-xs font-bold ${colors[tone]}`}
+      className={`inline-flex min-w-6 justify-center rounded-full px-1.5 py-1 text-[10px] font-bold sm:min-w-8 sm:px-2 sm:text-xs ${colors[tone]}`}
     >
       {value}
     </span>

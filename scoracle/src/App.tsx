@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   CalendarDays,
-  ChevronDown,
   Clock3,
   Goal,
   LockKeyhole,
@@ -15,6 +14,10 @@ import { ForgotPasswordModal } from './components/auth/ForgotPasswordModal'
 import { LoginModal } from './components/auth/LoginModal'
 import { SignupModal } from './components/auth/SignupModal'
 import { Header } from './components/layout/Header'
+import {
+  FilterDropdown,
+  type FilterDropdownOption,
+} from './components/ui/FilterDropdown'
 import { useAuth } from './context/useAuth'
 import {
   fetchHomeData,
@@ -66,6 +69,10 @@ function App() {
   const [selectedMatchweek, setSelectedMatchweek] = useState('all')
   const [selectedMonth, setSelectedMonth] = useState('all')
   const [isClubMenuOpen, setIsClubMenuOpen] = useState(false)
+  const [isMatchweekMenuOpen, setIsMatchweekMenuOpen] = useState(false)
+  const [isMonthMenuOpen, setIsMonthMenuOpen] = useState(false)
+  const [isPredictionMatchweekMenuOpen, setIsPredictionMatchweekMenuOpen] =
+    useState(false)
   const [isMobileStandingsOpen, setIsMobileStandingsOpen] = useState(false)
   const [modalKind, setModalKind] = useState<ModalKind>(null)
   const [selectedPredictionMatchweek, setSelectedPredictionMatchweek] =
@@ -609,7 +616,7 @@ function App() {
 
         <section className="flex min-h-0 flex-col gap-4 self-start lg:sticky lg:top-5 lg:max-h-[calc(100vh-40px)]">
           <div className="shrink-0 rounded-lg border border-[#DADADA] bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex items-start justify-between gap-3">
               <div>
                 <SectionTitle
                   icon={<CalendarDays className="h-5 w-5" />}
@@ -621,38 +628,43 @@ function App() {
                     : 'Ordered by kickoff. All times shown in IST.'}
                 </p>
               </div>
-              <span className="inline-flex w-fit items-center rounded-full bg-[#EEDFA3]/65 px-3 py-1 text-xs font-semibold text-[#333333]">
-                {isLoading ? 'Loading' : dataNotice}
-              </span>
+              <DataStatusIndicator isLoading={isLoading} label={dataNotice} />
             </div>
 
             {isPredictionMode ? (
-              <div className="mt-4 grid items-end gap-3 xl:grid-cols-[1fr_auto_auto]">
-                <label className="grid gap-1 text-left text-xs font-semibold uppercase text-[#5f6664]">
-                  <span className="leading-4">Match Week</span>
-                  <select
-                    value={activePredictionMatchweek}
-                    onChange={(event) =>
-                      setSelectedPredictionMatchweek(event.target.value)
+              <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] items-end gap-2">
+                <FilterDropdown
+                  label="Match week"
+                  selectedValue={activePredictionMatchweek}
+                  selectedLabel={`Match week ${activePredictionMatchweek}`}
+                  isOpen={isPredictionMatchweekMenuOpen}
+                  options={matchweeks.map((matchweek) => ({
+                    value: matchweek.toString(),
+                    label: `Match week ${matchweek}`,
+                  }))}
+                  onOpenChange={(nextIsOpen) => {
+                    setIsPredictionMatchweekMenuOpen(nextIsOpen)
+                    if (nextIsOpen) {
+                      setIsClubMenuOpen(false)
+                      setIsMatchweekMenuOpen(false)
+                      setIsMonthMenuOpen(false)
                     }
-                    className="h-11 w-full rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 text-sm font-semibold normal-case text-[#333333] focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
-                  >
-                    {matchweeks.map((matchweek) => (
-                      <option key={matchweek} value={matchweek}>
-                        MW {matchweek}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  }}
+                  onSelect={(value) => {
+                    setSelectedPredictionMatchweek(value)
+                  }}
+                />
                 <span
-                  className={`inline-flex h-11 items-center gap-2 rounded-lg border px-3 text-sm font-semibold ${
+                  className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-semibold ${
                     predictionLockInfo.isLocked
                       ? 'border-[#F45B5B] bg-[#F45B5B]/10 text-[#8a2626]'
                       : 'border-[#3CC8A5] bg-[#3CC8A5]/10 text-[#146b59]'
                   }`}
                 >
                   <LockKeyhole className="h-4 w-4" />
-                  {predictionLockInfo.isLocked ? 'Predictions locked' : 'Open'}
+                  <span className="hidden sm:inline">
+                    {predictionLockInfo.isLocked ? 'Locked' : 'Open'}
+                  </span>
                 </span>
                 <button
                   type="button"
@@ -662,54 +674,87 @@ function App() {
                     isPredictionsLoading ||
                     predictionLockInfo.isLocked
                   }
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#3CC8A5] px-4 text-sm font-semibold text-white transition hover:bg-[#F45B5B] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#3CC8A5] px-3 text-sm font-semibold text-white transition hover:bg-[#F45B5B] disabled:cursor-not-allowed disabled:opacity-60 sm:px-4"
                 >
                   <Save className="h-4 w-4" />
-                  {isSavingPredictions ? 'Saving...' : 'Save Predictions'}
+                  <span className="hidden sm:inline">
+                    {isSavingPredictions ? 'Saving...' : 'Save Predictions'}
+                  </span>
+                  <span className="sm:hidden">
+                    {isSavingPredictions ? '...' : 'Save'}
+                  </span>
                 </button>
               </div>
             ) : (
-              <div className="mt-4 grid items-end gap-3 xl:grid-cols-[1.35fr_0.75fr_0.75fr]">
+              <div className="mt-3 grid grid-cols-[minmax(0,1.2fr)_minmax(88px,0.8fr)_minmax(88px,0.8fr)] items-end gap-2">
                 <ClubFilter
                   teams={homeData.teams}
                   selectedClubId={selectedClubId}
                   isOpen={isClubMenuOpen}
-                  onToggle={() => setIsClubMenuOpen((value) => !value)}
+                  onOpenChange={(nextIsOpen) => {
+                    setIsClubMenuOpen(nextIsOpen)
+                    if (nextIsOpen) {
+                      setIsMatchweekMenuOpen(false)
+                      setIsMonthMenuOpen(false)
+                      setIsPredictionMatchweekMenuOpen(false)
+                    }
+                  }}
                   onSelect={(teamId) => {
                     setSelectedClubId(teamId)
-                    setIsClubMenuOpen(false)
                   }}
                 />
-                <label className="grid gap-1 text-left text-xs font-semibold uppercase text-[#5f6664]">
-                  <span className="leading-4">Match Week</span>
-                  <select
-                    value={selectedMatchweek}
-                    onChange={(event) => setSelectedMatchweek(event.target.value)}
-                    className="h-11 w-full rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 text-sm font-semibold normal-case text-[#333333] focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
-                  >
-                    <option value="all">All matchweeks</option>
-                    {matchweeks.map((matchweek) => (
-                      <option key={matchweek} value={matchweek}>
-                        Matchweek {matchweek}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-1 text-left text-xs font-semibold uppercase text-[#5f6664]">
-                  <span className="leading-4">Month</span>
-                  <select
-                    value={selectedMonth}
-                    onChange={(event) => setSelectedMonth(event.target.value)}
-                    className="h-11 w-full rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 text-sm font-semibold normal-case text-[#333333] focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
-                  >
-                    <option value="all">All months</option>
-                    {months.map((month) => (
-                      <option key={month} value={month}>
-                        {formatMonth(month)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <FilterDropdown
+                  label="MW"
+                  selectedValue={selectedMatchweek}
+                  selectedLabel={
+                    selectedMatchweek === 'all' ? 'All' : `MW ${selectedMatchweek}`
+                  }
+                  isOpen={isMatchweekMenuOpen}
+                  options={[
+                    { value: 'all', label: 'All' },
+                    ...matchweeks.map((matchweek) => ({
+                      value: matchweek.toString(),
+                      label: `MW ${matchweek}`,
+                    })),
+                  ]}
+                  onOpenChange={(nextIsOpen) => {
+                    setIsMatchweekMenuOpen(nextIsOpen)
+                    if (nextIsOpen) {
+                      setIsClubMenuOpen(false)
+                      setIsMonthMenuOpen(false)
+                      setIsPredictionMatchweekMenuOpen(false)
+                    }
+                  }}
+                  onSelect={(value) => {
+                    setSelectedMatchweek(value)
+                  }}
+                />
+                <FilterDropdown
+                  label="Month"
+                  selectedValue={selectedMonth}
+                  selectedLabel={
+                    selectedMonth === 'all' ? 'All' : formatMonth(selectedMonth)
+                  }
+                  isOpen={isMonthMenuOpen}
+                  options={[
+                    { value: 'all', label: 'All' },
+                    ...months.map((month) => ({
+                      value: month,
+                      label: formatMonth(month),
+                    })),
+                  ]}
+                  onOpenChange={(nextIsOpen) => {
+                    setIsMonthMenuOpen(nextIsOpen)
+                    if (nextIsOpen) {
+                      setIsClubMenuOpen(false)
+                      setIsMatchweekMenuOpen(false)
+                      setIsPredictionMatchweekMenuOpen(false)
+                    }
+                  }}
+                  onSelect={(value) => {
+                    setSelectedMonth(value)
+                  }}
+                />
               </div>
             )}
 
@@ -828,83 +873,85 @@ function SectionTitle({
   )
 }
 
+function DataStatusIndicator({
+  isLoading,
+  label,
+}: {
+  isLoading: boolean
+  label: string
+}) {
+  const statusLabel = isLoading ? 'Loading live provider data' : label
+
+  return (
+    <span
+      className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#EEDFA3] bg-[#FFF4CC] text-base shadow-sm"
+      aria-label={statusLabel}
+      title={statusLabel}
+      role="status"
+    >
+      <span className={isLoading ? 'animate-spin' : ''} aria-hidden="true">
+        ⚽
+      </span>
+      {!isLoading ? (
+        <span
+          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#3CC8A5] text-[10px] font-black text-white"
+          aria-hidden="true"
+        >
+          ✓
+        </span>
+      ) : null}
+    </span>
+  )
+}
+
 function ClubFilter({
   teams,
   selectedClubId,
   isOpen,
-  onToggle,
+  onOpenChange,
   onSelect,
 }: {
   teams: Team[]
   selectedClubId: string
   isOpen: boolean
-  onToggle: () => void
+  onOpenChange: (isOpen: boolean) => void
   onSelect: (teamId: string) => void
 }) {
   const selectedTeam = teams.find((team) => team.id === selectedClubId)
+  const options: FilterDropdownOption[] = [
+    { value: 'all', label: 'All clubs' },
+    ...teams.map((team) => ({ value: team.id, label: team.name })),
+  ]
 
   return (
-    <div className="relative grid gap-1 text-left">
-      <span className="text-xs font-semibold uppercase leading-4 text-[#5f6664]">
-        Club
-      </span>
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex h-11 w-full items-center justify-between gap-3 rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 text-sm font-semibold text-[#333333] focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
-        aria-expanded={isOpen}
-      >
+    <FilterDropdown
+      label="Club"
+      selectedValue={selectedClubId}
+      selectedLabel={selectedTeam?.name ?? 'All'}
+      options={options}
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+      onSelect={onSelect}
+      renderSelected={() => (
         <span className="flex min-w-0 items-center gap-2">
           <TeamBadge team={selectedTeam} />
-          <span className="truncate">{selectedTeam?.name ?? 'All clubs'}</span>
+          <span className="truncate">{selectedTeam?.name ?? 'All'}</span>
         </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-[#5f6664]" />
-      </button>
+      )}
+      renderOption={(option) => {
+        const team =
+          option.value === 'all'
+            ? undefined
+            : teams.find((candidate) => candidate.id === option.value)
 
-      {isOpen ? (
-        <div className="absolute z-20 mt-2 max-h-80 w-full overflow-auto rounded-lg border border-[#DADADA] bg-white p-1 shadow-[0_8px_24px_rgba(0,0,0,0.14)]">
-          <ClubOption
-            label="All clubs"
-            isSelected={selectedClubId === 'all'}
-            onClick={() => onSelect('all')}
-          />
-          {teams.map((team) => (
-            <ClubOption
-              key={team.id}
-              label={team.name}
-              team={team}
-              isSelected={selectedClubId === team.id}
-              onClick={() => onSelect(team.id)}
-            />
-          ))}
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-function ClubOption({
-  label,
-  team,
-  isSelected,
-  onClick,
-}: {
-  label: string
-  team?: Team
-  isSelected: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-semibold transition ${
-        isSelected ? 'bg-[#E8F4FA] text-[#333333]' : 'hover:bg-[#F9F9F9]'
-      }`}
-    >
-      <TeamBadge team={team} />
-      <span className="truncate">{label}</span>
-    </button>
+        return (
+          <span className="flex min-w-0 items-center gap-2">
+            <TeamBadge team={team} />
+            <span className="truncate">{option.label}</span>
+          </span>
+        )
+      }}
+    />
   )
 }
 
@@ -994,15 +1041,17 @@ function FixtureCard({
 
   return (
     <article className="overflow-hidden rounded-lg border border-[#DADADA] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
-      <div className="relative grid gap-3 border-l-8 border-[#3CC8A5] p-3 sm:p-4 xl:grid-cols-[minmax(290px,1.65fr)_minmax(130px,0.72fr)_minmax(170px,0.9fr)] xl:gap-4">
-        <span className="absolute right-4 top-4 rounded-full bg-[#E8F4FA] px-3 py-1 text-xs font-semibold uppercase text-[#03718a]">
+      <div
+        className={`relative grid border-l-8 border-[#3CC8A5] xl:grid-cols-[minmax(290px,1.65fr)_minmax(130px,0.72fr)_minmax(170px,0.9fr)] ${
+          predictionMode
+            ? 'gap-2 p-2.5 sm:p-3 xl:gap-4'
+            : 'gap-3 p-3 sm:p-4 xl:gap-4'
+        }`}
+      >
+        <span className="absolute right-3 top-3 z-10 rounded-full bg-[#E8F4FA] px-3 py-1 text-xs font-semibold uppercase text-[#03718a] sm:right-4 sm:top-4">
           MW {fixture.matchweek}
         </span>
-        <div
-          className={`space-y-3 pr-1 pt-1 ${
-            predictionMode ? 'pt-8 sm:pt-1' : ''
-          }`}
-        >
+        <div className="space-y-3 pr-0 pt-8 xl:pt-1">
           <FixtureTeamRow
             team={homeTeam}
             score={fixture.homeScore}
@@ -1027,7 +1076,7 @@ function FixtureCard({
 
         <div
           className={`space-y-3 pt-1 text-sm ${
-            predictionMode ? 'hidden lg:block' : ''
+            predictionMode ? 'hidden lg:block' : 'hidden xl:block'
           }`}
         >
           <Fact label="Venue" value={fixture.venue} />
@@ -1035,9 +1084,15 @@ function FixtureCard({
           <Fact label="Status" value={fixture.status} />
         </div>
 
-        <div className="space-y-3 pt-1 text-sm">
+        <div
+          className={
+            predictionMode
+              ? 'space-y-2 pt-0 text-sm'
+              : 'hidden space-y-3 pt-1 text-sm xl:block'
+          }
+        >
           {predictionMode ? (
-            <div className="mt-0 lg:mt-7">
+            <div className="mt-0 lg:mt-6">
               <PredictionPanel
                 fixture={fixture}
                 draft={draft}
@@ -1099,7 +1154,7 @@ function PredictionPanel({
   const predictionDisplay = getPredictionClosenessDisplay(display.closeness)
 
   return (
-    <div className="rounded-lg border border-[#DADADA] p-3">
+    <div className="rounded-lg border border-[#DADADA] p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <p className="text-xs font-semibold uppercase text-[#5f6664]">
@@ -1129,7 +1184,7 @@ function PredictionPanel({
         ) : null}
       </div>
 
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
         <ScoreInput
           label={`${fixture.homeTeamId} home score`}
           value={draft?.home ?? ''}
@@ -1145,9 +1200,21 @@ function PredictionPanel({
           isPendingSaved={isSavedNotScored}
           onChange={(value) => onChange?.('away', value)}
         />
+        {hasActual ? (
+          <span
+            className="inline-flex items-center gap-1 rounded-full border border-white/70 px-2 py-1 text-xs font-bold"
+            style={{
+              backgroundColor: predictionDisplay.backgroundColor,
+              color: predictionDisplay.textColor,
+            }}
+          >
+            {predictionDisplay.label}
+            <span>+{display.points}</span>
+          </span>
+        ) : null}
       </div>
 
-      {hasActual ? (
+      {/*
         <div
           className="mt-3 rounded-lg border border-white/70 px-3 py-2 text-sm"
           style={{
@@ -1160,7 +1227,7 @@ function PredictionPanel({
             <span> · +{display.points} pts</span>
           </p>
         </div>
-      ) : null}
+      */}
     </div>
   )
 }
@@ -1484,7 +1551,13 @@ function getFixtureMonthKey(kickoffUtc: string) {
 }
 
 function formatMonth(monthKey: string) {
-  return MONTH_FORMATTER.format(new Date(`${monthKey}-01T00:00:00.000Z`))
+  const [year, month] = monthKey.split('-').map(Number)
+  const monthLabel = MONTH_FORMATTER.format(
+    new Date(Date.UTC(year, month - 1, 1)),
+  ).slice(0, 3)
+  const yearLabel = year.toString().slice(-2)
+
+  return `${monthLabel} '${yearLabel}`
 }
 
 function initials(value: string) {
