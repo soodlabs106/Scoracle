@@ -669,14 +669,14 @@ function App() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F9F9F9] text-[#333333]">
+    <main className="min-h-screen bg-[#F7F5FF] text-[#12163F]">
       <Header
         onLogin={() => setModalKind('login')}
         onSignup={() => setModalKind('signup')}
       />
 
       <section className="mx-auto grid max-w-[1600px] gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(330px,0.95fr)_minmax(460px,1.55fr)_minmax(230px,0.65fr)] lg:px-8">
-        <section className="rounded-lg border border-[#DADADA] bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)] lg:hidden">
+        <section className="rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-[0_12px_32px_rgba(18,22,63,0.08)] lg:hidden">
           <button
             type="button"
             onClick={() => setIsMobileStandingsOpen((value) => !value)}
@@ -684,10 +684,10 @@ function App() {
             aria-expanded={isMobileStandingsOpen}
           >
             <span className="inline-flex items-center gap-2 text-lg font-semibold">
-              <Trophy className="h-5 w-5 text-[#3CC8A5]" />
+              <Trophy className="h-5 w-5 text-[#5B3FFF]" />
               Premier League Table
             </span>
-            <span className="rounded-full bg-[#E8F4FA] px-3 py-1 text-xs font-bold uppercase text-[#03718a]">
+            <span className="rounded-full bg-[#E9FFFC] px-3 py-1 text-xs font-bold uppercase text-[#12163F]">
               {isMobileStandingsOpen ? 'Hide' : 'Show'}
             </span>
           </button>
@@ -702,7 +702,7 @@ function App() {
           ) : null}
         </section>
 
-        <aside className="hidden rounded-lg border border-[#DADADA] bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)] lg:block">
+        <aside className="hidden rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-[0_12px_32px_rgba(18,22,63,0.08)] lg:block">
           <SectionTitle icon={<Trophy className="h-5 w-5" />} title="Table" />
           <StandingsTable
             standings={homeData.standings}
@@ -712,7 +712,7 @@ function App() {
         </aside>
 
         <section className="flex min-h-0 flex-col gap-4 self-start lg:sticky lg:top-5 lg:max-h-[calc(100vh-40px)]">
-          <div className="shrink-0 rounded-lg border border-[#DADADA] bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
+          <div className="shrink-0 rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-[0_12px_32px_rgba(18,22,63,0.08)]">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <SectionTitle
@@ -754,8 +754,8 @@ function App() {
                 <span
                   className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-semibold ${
                     predictionLockInfo.isLocked
-                      ? 'border-[#F45B5B] bg-[#F45B5B]/10 text-[#8a2626]'
-                      : 'border-[#3CC8A5] bg-[#3CC8A5]/10 text-[#146b59]'
+                    ? 'border-[#FF2D9A] bg-[#FFF0F8] text-[#12163F]'
+                    : 'border-[#18D6C9] bg-[#E9FFFC] text-[#12163F]'
                   }`}
                 >
                   <LockKeyhole className="h-4 w-4" />
@@ -771,7 +771,7 @@ function App() {
                     isPredictionsLoading ||
                     predictionLockInfo.isLocked
                   }
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#3CC8A5] px-3 text-sm font-semibold text-white transition hover:bg-[#F45B5B] disabled:cursor-not-allowed disabled:opacity-60 sm:px-4"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-[#18D6C9] to-[#5B3FFF] px-3 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(91,63,255,0.18)] transition-all duration-200 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4"
                 >
                   <Save className="h-4 w-4" />
                   <span className="hidden sm:inline">
@@ -875,7 +875,7 @@ function App() {
               <EmptyState message="Loading your saved predictions..." />
             ) : (isPredictionMode ? predictionFixtures : filteredFixtures)
                 .length > 0 ? (
-              (isPredictionMode ? predictionFixtures : filteredFixtures).map((fixture) => {
+              (isPredictionMode ? predictionFixtures : filteredFixtures).map((fixture, index) => {
                 const draftKey = getPredictionDraftKey(fixture)
 
                 return (
@@ -892,6 +892,7 @@ function App() {
                     draft={predictionDrafts[draftKey]}
                     isMatchweekLocked={predictionLockInfo.isLocked}
                     deletingPredictionId={deletingPredictionId}
+                    accentClass={fixtureAccentClass(index)}
                     onPredictionChange={(side, value) =>
                       updatePredictionDraft(draftKey, side, value)
                     }
@@ -977,8 +978,8 @@ function SectionTitle({
 }) {
   return (
     <div className="flex items-center gap-2 text-left">
-      <span className="text-[#3CC8A5]">{icon}</span>
-      <h2 className="text-xl font-semibold text-[#333333]">{title}</h2>
+      <span className="text-[#5B3FFF]">{icon}</span>
+      <h2 className="text-xl font-bold text-[#12163F]">{title}</h2>
     </div>
   )
 }
@@ -994,7 +995,7 @@ function DataStatusIndicator({
 
   return (
     <span
-      className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#EEDFA3] bg-[#FFF4CC] text-base shadow-sm"
+      className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#DCD5FF] bg-[#F1ECFF] text-base shadow-[0_8px_20px_rgba(91,63,255,0.16)]"
       aria-label={statusLabel}
       title={statusLabel}
       role="status"
@@ -1004,7 +1005,7 @@ function DataStatusIndicator({
       </span>
       {!isLoading ? (
         <span
-          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#3CC8A5] text-[10px] font-black text-white"
+          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#18D6C9] text-[10px] font-black text-[#12163F]"
           aria-hidden="true"
         >
           ✓
@@ -1075,9 +1076,9 @@ function StandingsTable({
   onTeamSelect: (teamId: string) => void
 }) {
   return (
-    <div className="mt-4 overflow-hidden rounded-lg border border-[#DADADA]">
+    <div className="mt-4 overflow-hidden rounded-lg border border-[#DCD5FF]">
       <table className="w-full table-fixed text-left text-xs">
-        <thead className="bg-[#E8F4FA] text-[#333333]">
+        <thead className="bg-gradient-to-r from-[#5B3FFF] to-[#FF2D9A] text-white">
           <tr>
             <th className="w-8 px-2 py-2 font-semibold">#</th>
             <th className="px-2 py-2 font-semibold">Club</th>
@@ -1089,24 +1090,29 @@ function StandingsTable({
             <th className="w-9 px-1 py-2 text-center font-semibold">Pts</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#DADADA] bg-white">
+        <tbody className="divide-y divide-[#DCD5FF] bg-white">
           {standings.map((standing) => {
             const team = teamsById.get(standing.teamId)
 
             return (
               <tr key={standing.teamId}>
-                <td className="px-2 py-2 font-semibold text-[#5f6664]">
+                <td className="px-2 py-2 font-bold text-[#12163F]">
                   {standing.position}
                 </td>
                 <td className="min-w-0 px-2 py-2">
                   <button
                     type="button"
                     onClick={() => onTeamSelect(standing.teamId)}
-                    className="flex min-w-0 items-center gap-2 text-left transition hover:text-[#03718a] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+                    className="flex w-full min-w-0 items-center gap-2 text-left transition hover:text-[#03718a] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
                   >
                     <TeamBadge team={team} small />
-                    <span className="font-semibold leading-tight">
-                      {team?.name ?? 'TBC'}
+                    <span className="min-w-0 flex-1 font-semibold leading-tight">
+                      <span className="hidden truncate xl:inline">
+                        {team?.name ?? 'TBC'}
+                      </span>
+                      <span className="truncate xl:hidden">
+                        {team?.teamCode ?? team?.shortName ?? 'TBC'}
+                      </span>
                     </span>
                   </button>
                 </td>
@@ -1137,6 +1143,7 @@ function FixtureCard({
   draft,
   isMatchweekLocked = false,
   deletingPredictionId,
+  accentClass,
   onPredictionChange,
   onDeletePrediction,
   onTeamSelect,
@@ -1148,6 +1155,7 @@ function FixtureCard({
   draft?: PredictionDraft
   isMatchweekLocked?: boolean
   deletingPredictionId?: string | null
+  accentClass: string
   onPredictionChange?: (side: keyof PredictionDraft, value: string) => void
   onDeletePrediction?: (prediction: PredictionRow) => void
   onTeamSelect: (teamId: string) => void
@@ -1158,15 +1166,15 @@ function FixtureCard({
   const displayPrediction = getFixturePredictionDisplay(fixture, prediction)
 
   return (
-    <article className="overflow-hidden rounded-lg border border-[#DADADA] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
+    <article className="overflow-hidden rounded-lg border border-[#DCD5FF] bg-white shadow-[0_12px_32px_rgba(18,22,63,0.08)] transition-all duration-200 hover:shadow-[0_18px_44px_rgba(91,63,255,0.14)]">
       <div
-        className={`relative grid border-l-8 border-[#3CC8A5] xl:grid-cols-[minmax(290px,1.65fr)_minmax(130px,0.72fr)_minmax(170px,0.9fr)] ${
+        className={`relative grid border-l-8 ${accentClass} xl:grid-cols-[minmax(290px,1.65fr)_minmax(130px,0.72fr)_minmax(170px,0.9fr)] ${
           predictionMode
             ? 'gap-2 p-2.5 sm:p-3 xl:gap-4'
             : 'gap-3 p-3 sm:p-4 xl:gap-4'
         }`}
       >
-        <span className="absolute right-3 top-3 z-10 rounded-full bg-[#E8F4FA] px-3 py-1 text-xs font-semibold uppercase text-[#03718a] sm:right-4 sm:top-4">
+        <span className="absolute right-3 top-3 z-10 rounded-full bg-[#E9FFFC] px-3 py-1 text-xs font-bold uppercase text-[#2F6BFF] sm:right-4 sm:top-4">
           MW {fixture.matchweek}
         </span>
         <div className="space-y-3 pr-0 pt-8 xl:pt-1">
@@ -1176,7 +1184,7 @@ function FixtureCard({
             isHome
             onTeamSelect={onTeamSelect}
           />
-          <div className="text-center text-xs font-bold uppercase text-[#5f6664]">
+          <div className="text-center text-xs font-bold uppercase text-[#5B3FFF]">
             vs
           </div>
           <FixtureTeamRow
@@ -1190,8 +1198,8 @@ function FixtureCard({
             }`}
           >
             <p className="text-base font-bold">{kickoff.date}</p>
-            <p className="flex items-center gap-1 text-sm text-[#5f6664]">
-              <Clock3 className="h-4 w-4" />
+            <p className="flex items-center gap-1 text-sm font-medium text-[#555B7A]">
+              <Clock3 className="h-4 w-4 text-[#FF2D9A]" />
               {kickoff.time} IST
             </p>
           </div>
@@ -1397,23 +1405,92 @@ function FixtureTeamRow({
   onTeamSelect: (teamId: string) => void
 }) {
   return (
-    <div className="grid min-h-14 w-full grid-cols-[minmax(0,1fr)_44px] items-center gap-3 rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 py-2">
+    <div className="grid min-h-14 w-full grid-cols-[minmax(0,1fr)_44px] items-center gap-3 rounded-lg border border-[#DCD5FF] bg-gradient-to-br from-[#FFFFFF] to-[#F7F5FF] px-3 py-2">
       <button
         type="button"
         onClick={() => team && onTeamSelect(team.id)}
         disabled={!team}
-        className="flex min-w-0 items-center gap-3 text-left transition hover:text-[#03718a] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20 disabled:cursor-default"
+        className="flex min-w-0 items-center gap-3 text-left transition hover:text-[#5B3FFF] focus:outline-none focus:ring-2 focus:ring-[#5B3FFF]/20 disabled:cursor-default"
       >
         <TeamBadge team={team} />
         <span className="min-w-0 flex-1 truncate text-left text-base font-semibold leading-snug">
           {team?.name ?? (isHome ? 'Home club' : 'Away club')}
         </span>
       </button>
-      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#DADADA]/60 text-sm font-bold">
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF0F8] text-sm font-extrabold text-[#12163F]">
         {score ?? '-'}
       </div>
     </div>
   )
+}
+
+const SQUAD_POSITION_GROUPS = [
+  { key: 'goalkeepers', title: 'Goalkeepers' },
+  { key: 'defenders', title: 'Defenders' },
+  { key: 'midfielders', title: 'Midfielders' },
+  { key: 'forwards', title: 'Forwards' },
+  { key: 'other', title: 'Other' },
+] as const
+
+type SquadPositionGroupKey = (typeof SQUAD_POSITION_GROUPS)[number]['key']
+type SquadPlayer = TeamDetails['squad'][number]
+
+function getSquadPositionGroup(position?: string): SquadPositionGroupKey {
+  const normalizedPosition = String(position ?? '').toLowerCase()
+
+  if (
+    normalizedPosition === 'g' ||
+    normalizedPosition.includes('goalkeeper')
+  ) {
+    return 'goalkeepers'
+  }
+
+  if (
+    normalizedPosition === 'd' ||
+    normalizedPosition.includes('defender') ||
+    normalizedPosition.includes('full back') ||
+    normalizedPosition.includes('centre back') ||
+    normalizedPosition.includes('center back')
+  ) {
+    return 'defenders'
+  }
+
+  if (
+    normalizedPosition === 'm' ||
+    normalizedPosition.includes('midfielder') ||
+    normalizedPosition.includes('midfield')
+  ) {
+    return 'midfielders'
+  }
+
+  if (
+    normalizedPosition === 'f' ||
+    normalizedPosition.includes('forward') ||
+    normalizedPosition.includes('striker') ||
+    normalizedPosition.includes('winger') ||
+    normalizedPosition.includes('attacker')
+  ) {
+    return 'forwards'
+  }
+
+  return 'other'
+}
+
+function groupSquadByPosition(players: SquadPlayer[]) {
+  const grouped = new Map<SquadPositionGroupKey, SquadPlayer[]>()
+
+  for (const group of SQUAD_POSITION_GROUPS) {
+    grouped.set(group.key, [])
+  }
+
+  for (const player of players) {
+    grouped.get(getSquadPositionGroup(player.position))?.push(player)
+  }
+
+  return SQUAD_POSITION_GROUPS.map((group) => ({
+    ...group,
+    players: grouped.get(group.key) ?? [],
+  })).filter((group) => group.players.length > 0)
 }
 
 function TeamDetailsModal({
@@ -1440,6 +1517,10 @@ function TeamDetailsModal({
     : fallbackTopScorer
       ? `${fallbackTopScorer.playerName} (${fallbackTopScorer.value})`
       : 'Unavailable'
+  const squadGroups = useMemo(
+    () => groupSquadByPosition(details?.squad ?? []),
+    [details?.squad],
+  )
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -1455,23 +1536,23 @@ function TeamDetailsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[#333333]/45 px-3 py-4 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[#12163F]/45 px-3 py-4 backdrop-blur-sm sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="team-details-title"
     >
-      <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-lg border border-[#DADADA] bg-white shadow-[0_24px_80px_rgba(0,0,0,0.25)] motion-safe:animate-[modalIn_180ms_ease-out]">
-        <div className="flex items-start justify-between gap-4 border-b border-[#DADADA] bg-[#F9F9F9] p-4">
+      <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-lg border border-[#DCD5FF] bg-white shadow-[0_24px_80px_rgba(18,22,63,0.24)] motion-safe:animate-[modalIn_180ms_ease-out]">
+        <div className="flex items-start justify-between gap-4 border-b border-[#DCD5FF] bg-gradient-to-br from-[#F7F5FF] to-[#E9FFFC] p-4">
           <div className="flex min-w-0 items-center gap-3">
             <TeamBadge team={team} />
             <div className="min-w-0">
               <h2
                 id="team-details-title"
-                className="truncate text-xl font-bold text-[#333333]"
+                className="truncate text-xl font-bold text-[#12163F]"
               >
                 {team.name}
               </h2>
-              <p className="text-sm font-semibold text-[#5f6664]">
+              <p className="text-sm font-semibold text-[#555B7A]">
                 Position:{' '}
                 {standing?.position ? `#${standing.position}` : 'Unavailable'}
               </p>
@@ -1480,7 +1561,7 @@ function TeamDetailsModal({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#DADADA] bg-white text-[#333333] transition hover:bg-[#E8F4FA] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/25"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#DCD5FF] bg-white text-[#12163F] transition hover:bg-[#F1ECFF] focus:outline-none focus:ring-2 focus:ring-[#5B3FFF]/25"
             aria-label="Close team details"
           >
             <X className="h-4 w-4" />
@@ -1489,8 +1570,8 @@ function TeamDetailsModal({
 
         <div className="max-h-[calc(92vh-86px)] overflow-y-auto p-4">
           <div className="grid gap-4 lg:grid-cols-[1fr_1.15fr]">
-            <section className="rounded-lg border border-[#DADADA] bg-white p-4">
-              <h3 className="text-sm font-bold uppercase text-[#03718a]">
+            <section className="rounded-lg border border-[#DCD5FF] bg-white p-4">
+              <h3 className="text-sm font-bold uppercase text-[#5B3FFF]">
                 Last 5 results
               </h3>
               {recentResults.length > 0 ? (
@@ -1498,7 +1579,7 @@ function TeamDetailsModal({
                   {recentResults.map((result) => (
                     <div
                       key={result.fixtureId}
-                      className="inline-flex items-center gap-2 rounded-full border border-[#DADADA] bg-[#F9F9F9] px-2.5 py-1.5"
+                      className="inline-flex items-center gap-2 rounded-full border border-[#DCD5FF] bg-[#F7F5FF] px-2.5 py-1.5"
                     >
                       <span
                         className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-black ${resultBadgeClass(
@@ -1507,36 +1588,36 @@ function TeamDetailsModal({
                       >
                         {result.result}
                       </span>
-                      <span className="hidden text-sm font-semibold text-[#333333] sm:inline">
+                      <span className="hidden text-sm font-semibold text-[#12163F] sm:inline">
                         {result.score} vs {result.opponentName}
                       </span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="mt-3 rounded-lg border border-dashed border-[#DADADA] bg-[#F9F9F9] p-3 text-sm font-semibold text-[#5f6664]">
+                <p className="mt-3 rounded-lg border border-dashed border-[#DCD5FF] bg-[#F7F5FF] p-3 text-sm font-semibold text-[#555B7A]">
                   No completed results available yet.
                 </p>
               )}
             </section>
 
-            <section className="rounded-lg border border-[#DADADA] bg-white p-4">
-              <h3 className="text-sm font-bold uppercase text-[#03718a]">
+            <section className="rounded-lg border border-[#DCD5FF] bg-white p-4">
+              <h3 className="text-sm font-bold uppercase text-[#5B3FFF]">
                 Current highest scorer
               </h3>
-              <p className="mt-3 rounded-lg bg-[#E8F4FA] px-3 py-2 text-base font-bold text-[#333333]">
+              <p className="mt-3 rounded-lg bg-gradient-to-br from-[#F1ECFF] to-[#FFF0F8] px-3 py-2 text-base font-bold text-[#12163F]">
                 {topScorer}
               </p>
             </section>
           </div>
 
-          <section className="mt-4 rounded-lg border border-[#DADADA] bg-white p-4">
+          <section className="mt-4 rounded-lg border border-[#DCD5FF] bg-white p-4">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-bold uppercase text-[#03718a]">
+              <h3 className="text-sm font-bold uppercase text-[#5B3FFF]">
                 Squad
               </h3>
               {isLoading ? (
-                <span className="text-xs font-semibold text-[#5f6664]">
+                <span className="text-xs font-semibold text-[#555B7A]">
                   Loading...
                 </span>
               ) : null}
@@ -1548,21 +1629,38 @@ function TeamDetailsModal({
               </p>
             ) : null}
 
-            {!isLoading && !error && details?.squad.length ? (
-              <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {details.squad.map((player) => (
-                  <li
-                    key={player.id}
-                    className="rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 py-2 text-sm font-semibold text-[#333333]"
+            {!isLoading && !error && squadGroups.length ? (
+              <div className="mt-3 grid gap-3">
+                {squadGroups.map((group) => (
+                  <div
+                    key={group.key}
+                    className="rounded-lg border border-[#DCD5FF] bg-[#F7F5FF] p-3"
                   >
-                    {player.name}
-                  </li>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <h4 className="text-xs font-black uppercase tracking-wide text-[#5B3FFF]">
+                        {group.title}
+                      </h4>
+                      <span className="rounded-full bg-white px-2 py-0.5 text-xs font-bold text-[#555B7A]">
+                        {group.players.length}
+                      </span>
+                    </div>
+                    <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {group.players.map((player) => (
+                        <li
+                          key={player.id}
+                          className="rounded-lg border border-[#DCD5FF] bg-white px-3 py-2 text-sm font-semibold text-[#12163F]"
+                        >
+                          {player.name}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
+              </div>
             ) : null}
 
-            {!isLoading && !error && !details?.squad.length ? (
-              <p className="mt-3 rounded-lg border border-dashed border-[#DADADA] bg-[#F9F9F9] p-3 text-sm font-semibold text-[#5f6664]">
+            {!isLoading && !error && !squadGroups.length ? (
+              <p className="mt-3 rounded-lg border border-dashed border-[#DCD5FF] bg-[#F7F5FF] p-3 text-sm font-semibold text-[#555B7A]">
                 Squad list is not available yet.
               </p>
             ) : null}
@@ -1590,27 +1688,27 @@ function LeaderboardCard({
   const topTeam = topLeader ? teamsById.get(topLeader.teamId) : undefined
 
   return (
-    <section className="rounded-lg border border-[#DADADA] bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
+    <section className="rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-[0_12px_32px_rgba(18,22,63,0.08)] transition-all duration-200 hover:shadow-[0_18px_44px_rgba(91,63,255,0.14)]">
       <SectionTitle icon={icon} title={title} />
 
       {topLeader ? (
         <div className="mt-4">
-          <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 rounded-lg bg-[#E8F4FA] p-3">
+          <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 rounded-lg bg-gradient-to-br from-[#F1ECFF] to-[#FFF0F8] p-3">
             <PlayerPhoto leader={topLeader} />
             <div className="min-w-0 flex-1">
               <p className="text-base font-bold leading-tight">
                 {topLeader.playerName}
               </p>
-              <div className="mt-1 flex min-w-0 items-center gap-2 text-sm text-[#5f6664]">
+              <div className="mt-1 flex min-w-0 items-center gap-2 text-sm font-medium text-[#555B7A]">
                 <TeamBadge team={topTeam} small />
                 <span className="leading-tight">{topTeam?.name ?? 'Club TBC'}</span>
               </div>
             </div>
-            <div className="col-span-2 rounded-lg bg-white px-3 py-2 text-center">
-              <p className="text-2xl font-bold text-[#F45B5B]">
+            <div className="col-span-2 rounded-lg bg-white px-3 py-2 text-center shadow-sm">
+              <p className="text-3xl font-extrabold text-[#FF2D9A]">
                 {topLeader.value}
               </p>
-              <p className="text-xs font-semibold uppercase text-[#5f6664]">
+              <p className="text-xs font-bold uppercase text-[#555B7A]">
                 {label}
               </p>
             </div>
@@ -1623,10 +1721,10 @@ function LeaderboardCard({
               return (
                 <div
                   key={leader.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-[#DADADA] px-3 py-2 text-sm"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-[#DCD5FF] bg-white px-3 py-2 text-sm"
                 >
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className="w-5 shrink-0 font-bold text-[#3CC8A5]">
+                    <span className="w-5 shrink-0 font-bold text-[#FF2D9A]">
                       {index + 2}
                     </span>
                     <TeamBadge team={team} small />
@@ -1659,7 +1757,7 @@ function PlayerPhoto({ leader }: { leader: Leader }) {
   }
 
   return (
-    <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-white text-[#3CC8A5]">
+    <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-white text-[#5B3FFF]">
       <UserRound className="h-8 w-8" />
     </div>
   )
@@ -1686,7 +1784,7 @@ function TeamBadge({
 
   return (
     <span
-      className={`${size} flex shrink-0 items-center justify-center rounded-full bg-[#3CC8A5]/15 font-bold text-[#02745d]`}
+      className={`${size} flex shrink-0 items-center justify-center rounded-full bg-[#E9FFFC] font-bold text-[#12163F]`}
     >
       {team ? initials(team.shortName) : 'PL'}
     </span>
@@ -1720,6 +1818,17 @@ function scopeLeaders(leaders: Leader[], selectedClubId: string) {
 
 function leaderTitle(label: string, selectedClub?: Team) {
   return selectedClub ? `${label}: ${selectedClub.shortName}` : label
+}
+
+function fixtureAccentClass(index: number) {
+  const accents = [
+    'border-l-[#5B3FFF]',
+    'border-l-[#FF2D9A]',
+    'border-l-[#18D6C9]',
+    'border-l-[#2F6BFF]',
+  ]
+
+  return accents[index % accents.length]
 }
 
 function getFixturePredictionDisplay(

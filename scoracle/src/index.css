@@ -1,10 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@700;800&display=swap');
 @import 'tailwindcss';
 
 :root {
+  --scoracle-navy: #12163f;
+  --scoracle-muted: #555b7a;
+  --scoracle-violet: #5b3fff;
+  --scoracle-fuchsia: #ff2d9a;
+  --scoracle-aqua: #18d6c9;
+  --scoracle-blue: #2f6bff;
+  --scoracle-bg: #f7f5ff;
+  --scoracle-card: #ffffff;
+  --scoracle-lavender: #f1ecff;
+  --scoracle-aqua-soft: #e9fffc;
+  --scoracle-pink-soft: #fff0f8;
+  --scoracle-border: #dcd5ff;
+  --scoracle-shadow: 0 12px 32px rgba(18, 22, 63, 0.08);
+  --scoracle-shadow-hover: 0 18px 44px rgba(91, 63, 255, 0.14);
   font-family:
-    'Aptos Display', Aptos, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  color: #333333;
-  background: #f9f9f9;
+    Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: var(--scoracle-navy);
+  background: var(--scoracle-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -19,7 +34,9 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #f9f9f9;
+  background:
+    radial-gradient(circle at top left, rgba(255, 45, 154, 0.08), transparent 28rem),
+    linear-gradient(135deg, #f7f5ff 0%, #f9fdff 100%);
 }
 
 button,
@@ -29,6 +46,105 @@ select {
 
 button {
   cursor: pointer;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: Manrope, Inter, system-ui, sans-serif;
+  letter-spacing: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: Inter, system-ui, sans-serif;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    opacity 180ms ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  button:hover,
+  a:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.text-\[\#333333\] {
+  color: var(--scoracle-navy) !important;
+}
+
+.text-\[\#5f6664\] {
+  color: var(--scoracle-muted) !important;
+}
+
+.text-\[\#3CC8A5\] {
+  color: var(--scoracle-violet) !important;
+}
+
+.text-\[\#03718a\],
+.text-\[\#4DB7E8\] {
+  color: var(--scoracle-blue) !important;
+}
+
+.bg-\[\#F9F9F9\] {
+  background-color: var(--scoracle-bg) !important;
+}
+
+.bg-\[\#E8F4FA\] {
+  background-color: var(--scoracle-aqua-soft) !important;
+}
+
+.bg-\[\#3CC8A5\] {
+  background-color: var(--scoracle-aqua) !important;
+}
+
+.bg-\[\#F45B5B\] {
+  background-color: var(--scoracle-fuchsia) !important;
+}
+
+.border-\[\#DADADA\] {
+  border-color: var(--scoracle-border) !important;
+}
+
+.border-\[\#3CC8A5\] {
+  border-color: var(--scoracle-aqua) !important;
+}
+
+.border-\[\#4DB7E8\] {
+  border-color: var(--scoracle-blue) !important;
+}
+
+.focus\:border-\[\#3CC8A5\]:focus {
+  border-color: var(--scoracle-violet) !important;
+}
+
+.focus\:ring-\[\#3CC8A5\]\/20:focus,
+.focus\:ring-\[\#3CC8A5\]\/25:focus,
+.focus\:ring-\[\#3CC8A5\]\/40:focus {
+  --tw-ring-color: rgba(91, 63, 255, 0.24) !important;
+}
+
+.shadow-\[0_4px_12px_rgba\(0\,0\,0\,0\.06\)\] {
+  box-shadow: var(--scoracle-shadow) !important;
+}
+
+.rounded-lg {
+  border-radius: 1rem;
 }
 
 @keyframes dropdownIn {

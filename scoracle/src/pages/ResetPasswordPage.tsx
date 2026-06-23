@@ -45,16 +45,20 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F9F9F9] px-4 py-10 text-[#333333]">
-      <section className="mx-auto max-w-md rounded-lg border border-[#DADADA] bg-white p-6 shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
+    <main className="min-h-screen bg-[#F7F5FF] px-4 py-10 text-[#12163F]">
+      <section className="mx-auto max-w-md rounded-lg border border-[#DCD5FF] bg-white p-6 shadow-[0_12px_32px_rgba(18,22,63,0.08)]">
         <div className="flex items-center gap-3">
           <img
-            src="/scoracle-base.png"
+            src="/scoracle-logo.png"
             alt=""
             className="h-12 w-12 rounded-lg object-contain"
           />
           <div>
-            <p className="text-sm font-semibold text-[#3CC8A5]">Scoracle</p>
+            <img
+              src="/scoracle-lettering.png"
+              alt="Scoracle"
+              className="h-5 w-auto object-contain"
+            />
             <h1 className="text-2xl font-bold">Reset Password</h1>
           </div>
         </div>
@@ -67,7 +71,7 @@ export function ResetPasswordPage() {
               onChange={(event) => setPassword(event.target.value)}
               type="password"
               autoComplete="new-password"
-              className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] px-3 text-base focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+              className="mt-1 h-11 w-full rounded-lg border border-[#DCD5FF] px-3 text-base focus:border-[#5B3FFF] focus:outline-none focus:ring-2 focus:ring-[#5B3FFF]/20"
               required
             />
           </label>
@@ -75,8 +79,8 @@ export function ResetPasswordPage() {
           <div
             className={`rounded-lg border p-3 text-sm ${
               validation.isValid
-                ? 'border-[#3CC8A5] bg-[#3CC8A5]/10 text-[#333333]'
-                : 'border-[#F45B5B] bg-[#F45B5B]/10 text-[#8a2626]'
+                ? 'border-[#18D6C9] bg-[#E9FFFC] text-[#12163F]'
+                : 'border-[#FF2D9A] bg-[#FFF0F8] text-[#12163F]'
             }`}
           >
             <p
@@ -116,7 +120,7 @@ export function ResetPasswordPage() {
               onChange={(event) => setRepeatPassword(event.target.value)}
               type="password"
               autoComplete="new-password"
-              className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] px-3 text-base focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+              className="mt-1 h-11 w-full rounded-lg border border-[#DCD5FF] px-3 text-base focus:border-[#5B3FFF] focus:outline-none focus:ring-2 focus:ring-[#5B3FFF]/20"
               required
             />
             <FieldError
@@ -133,7 +137,7 @@ export function ResetPasswordPage() {
           <button
             type="submit"
             disabled={isSubmitting || !canSubmit}
-            className="h-11 w-full rounded-lg bg-[#F45B5B] px-4 text-sm font-semibold text-white transition hover:bg-[#3CC8A5] disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-11 w-full rounded-lg bg-gradient-to-br from-[#FF2D9A] to-[#8B5CFF] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,45,154,0.22)] transition-all duration-200 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? 'Updating...' : 'Update password'}
           </button>
@@ -141,7 +145,7 @@ export function ResetPasswordPage() {
 
         <Link
           to="/"
-          className="mt-4 block text-center text-sm font-semibold text-[#3CC8A5] hover:underline"
+          className="mt-4 block text-center text-sm font-semibold text-[#5B3FFF] hover:underline"
         >
           Return home
         </Link>

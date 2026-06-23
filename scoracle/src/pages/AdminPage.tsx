@@ -97,7 +97,11 @@ export function AdminPage() {
       <section className="mx-auto max-w-5xl rounded-lg border border-[#DADADA] bg-white p-5 shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-[#3CC8A5]">Scoracle</p>
+            <img
+              src="/scoracle-lettering.png"
+              alt="Scoracle"
+              className="h-6 w-auto object-contain"
+            />
             <h1 className="text-3xl font-bold">Admin</h1>
             <p className="mt-1 text-sm text-[#5f6664]">
               Disable or enable accounts. Emails and passwords are not shown.
@@ -181,11 +185,18 @@ function AdminShell({
     <main className="min-h-screen bg-[#F9F9F9] px-4 py-10 text-[#333333]">
       <section className="mx-auto max-w-md rounded-lg border border-[#DADADA] bg-white p-6 text-center shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
         <img
-          src="/scoracle-base.png"
+          src="/scoracle-logo.png"
           alt=""
           className="mx-auto h-16 w-16 rounded-lg object-contain"
         />
-        <h1 className="mt-4 text-2xl font-bold">Scoracle Admin</h1>
+        <h1 className="mt-4 flex flex-col items-center gap-2 text-2xl font-bold">
+          <img
+            src="/scoracle-lettering.png"
+            alt="Scoracle"
+            className="h-7 w-auto object-contain"
+          />
+          <span>Admin</span>
+        </h1>
         <p className="mt-2 text-sm text-[#5f6664]">{message}</p>
         {children}
       </section>

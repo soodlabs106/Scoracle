@@ -13,23 +13,27 @@ export function AuthModalFrame({
   onClose,
 }: AuthModalFrameProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#333333]/45 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#12163F]/45 p-4 backdrop-blur-sm">
       <section
         aria-labelledby="auth-modal-title"
-        className="max-h-[92vh] w-full max-w-md overflow-auto rounded-lg bg-white p-6 shadow-[0_18px_60px_rgba(0,0,0,0.22)]"
+        className="max-h-[92vh] w-full max-w-md overflow-auto rounded-lg border border-[#DCD5FF] bg-white p-6 shadow-[0_24px_80px_rgba(18,22,63,0.20)] motion-safe:animate-[modalIn_180ms_ease-out]"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <img
-              src="/scoracle-base.png"
+              src="/scoracle-logo.png"
               alt=""
               className="h-11 w-11 rounded-lg object-contain"
             />
             <div>
-              <p className="text-sm font-semibold text-[#3CC8A5]">Scoracle</p>
+              <img
+                src="/scoracle-lettering.png"
+                alt="Scoracle"
+                className="h-5 w-auto object-contain"
+              />
               <h2
                 id="auth-modal-title"
-                className="text-2xl font-semibold text-[#333333]"
+                className="text-2xl font-bold text-[#12163F]"
               >
                 {title}
               </h2>
@@ -39,7 +43,7 @@ export function AuthModalFrame({
             type="button"
             onClick={onClose}
             aria-label="Close modal"
-            className="rounded-lg border border-[#DADADA] p-2 text-[#333333] transition hover:bg-[#E8F4FA]"
+            className="rounded-lg border border-[#DCD5FF] p-2 text-[#12163F] transition-all duration-200 hover:bg-[#F1ECFF]"
           >
             <X className="h-5 w-5" />
           </button>
@@ -55,7 +59,7 @@ export function FieldError({ message }: { message?: string }) {
     return null
   }
 
-  return <p className="mt-1 text-sm font-semibold text-[#F45B5B]">{message}</p>
+  return <p className="mt-1 text-sm font-semibold text-[#FF2D9A]">{message}</p>
 }
 
 export function ServerMessage({
@@ -70,9 +74,9 @@ export function ServerMessage({
   }
 
   const styles = {
-    info: 'border-[#4DB7E8] bg-[#E8F4FA] text-[#333333]',
-    error: 'border-[#F45B5B] bg-[#F45B5B]/10 text-[#8a2626]',
-    success: 'border-[#3CC8A5] bg-[#3CC8A5]/10 text-[#146b59]',
+    info: 'border-[#2F6BFF] bg-[#E9FFFC] text-[#12163F]',
+    error: 'border-[#FF2D9A] bg-[#FFF0F8] text-[#12163F]',
+    success: 'border-[#18D6C9] bg-[#E9FFFC] text-[#12163F]',
   }
 
   return (

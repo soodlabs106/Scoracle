@@ -109,6 +109,43 @@ export default defineConfig(({ mode }) => {
               }
             },
           )
+
+          server.middlewares.use(
+            '/api/team-details',
+            async (request, response) => {
+              try {
+                const functionPath = pathToFileURL(
+                  resolve(process.cwd(), 'netlify/functions/team-details.mjs'),
+                ).href
+                const { handler } = (await import(
+                  functionPath
+                )) as NetlifyFunctionModule
+                const url = new URL(request.url ?? '', 'http://localhost')
+                const result = await handler({
+                  httpMethod: request.method,
+                  headers: request.headers as Record<string, string>,
+                  queryStringParameters: Object.fromEntries(url.searchParams),
+                })
+
+                for (const [key, value] of Object.entries(result.headers ?? {})) {
+                  response.setHeader(key, value)
+                }
+
+                response.statusCode = result.statusCode ?? 200
+                response.end(result.body)
+              } catch (error) {
+                response.statusCode = 502
+                response.setHeader('content-type', 'application/json')
+                response.end(
+                  JSON.stringify({
+                    error: 'Unable to load local Scoracle team details',
+                    details:
+                      error instanceof Error ? error.message : 'Unknown error',
+                  }),
+                )
+              }
+            },
+          )
         },
       },
     ],

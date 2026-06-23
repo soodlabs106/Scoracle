@@ -15,19 +15,23 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
   }
 
   return (
-    <header className="border-b border-[#DADADA] bg-white/90">
+    <header className="border-b border-[#DCD5FF] bg-white/90 backdrop-blur">
       <div className="mx-auto flex min-h-[72px] max-w-[1600px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <Link to="/" className="flex items-center gap-3 text-left">
           <img
-            src="/scoracle-base.png"
-            alt="Scoracle"
+            src="/scoracle-logo.png"
+            alt=""
             className="h-14 w-14 rounded-lg object-contain"
           />
           <div>
-            <h1 className="text-3xl font-bold leading-tight text-[#333333]">
-              Scoracle
+            <h1>
+              <img
+                src="/scoracle-lettering.png"
+                alt="Scoracle"
+                className="h-9 w-auto object-contain"
+              />
             </h1>
-            <p className="text-sm text-[#5f6664]">
+            <p className="text-sm font-medium text-[#555B7A]">
               Predict the Premier League. Prove your edge.
             </p>
           </div>
@@ -35,12 +39,12 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
 
         <div className="flex flex-wrap items-center gap-3">
           {message ? (
-            <span className="rounded-full border border-[#EEDFA3] bg-[#EEDFA3]/45 px-3 py-2 text-xs font-semibold text-[#333333]">
+            <span className="rounded-full border border-[#DCD5FF] bg-[#FFF0F8] px-3 py-2 text-xs font-bold text-[#12163F]">
               {message}
             </span>
           ) : (
-            <span className="hidden items-center gap-2 rounded-full border border-[#DADADA] bg-[#E8F4FA] px-3 py-2 text-xs font-semibold text-[#333333] sm:inline-flex">
-              <Sparkles className="h-4 w-4 text-[#3CC8A5]" />
+            <span className="hidden items-center gap-2 rounded-full border border-[#DCD5FF] bg-[#F1ECFF] px-4 py-2 text-xs font-bold text-[#5B3FFF] shadow-[0_8px_20px_rgba(91,63,255,0.10)] sm:inline-flex">
+              <Sparkles className="h-4 w-4 text-[#5B3FFF]" />
               {profile ? 'Prediction mode' : 'Fixture mode'}
             </span>
           )}
@@ -49,21 +53,21 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
             <>
               <Link
                 to="/leaderboard"
-                className="rounded-lg border border-[#DADADA] px-4 py-2 text-sm font-semibold text-[#333333] transition hover:bg-[#E8F4FA]"
+                className="rounded-lg border border-[#DCD5FF] bg-white px-4 py-2 text-sm font-semibold text-[#12163F] shadow-sm transition-all duration-200 hover:bg-[#F1ECFF]"
               >
                 Leaderboard
               </Link>
               {isAdmin ? (
                 <Link
                   to="/admin-soodlabs"
-                  className="rounded-lg border border-[#4DB7E8] px-4 py-2 text-sm font-semibold text-[#03718a] transition hover:bg-[#E8F4FA]"
+                  className="rounded-lg border border-[#5B3FFF] bg-white px-4 py-2 text-sm font-semibold text-[#5B3FFF] shadow-sm transition-all duration-200 hover:bg-[#F1ECFF]"
                 >
                   Admin
                 </Link>
               ) : null}
               <Link
                 to="/profile"
-                className="inline-flex h-11 items-center gap-2 rounded-full border border-[#DADADA] bg-[#E8F4FA] py-1 pl-1 pr-3 text-sm font-semibold text-[#333333] transition hover:bg-[#DADADA]/60"
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-[#DCD5FF] bg-[#E9FFFC] py-1 pl-1 pr-3 text-sm font-semibold text-[#12163F] shadow-sm transition-all duration-200 hover:bg-[#F1ECFF]"
                 title="Open profile"
               >
                 <HeaderAvatar
@@ -75,7 +79,7 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="rounded-lg border border-[#3CC8A5] px-4 py-2 text-sm font-semibold text-[#3CC8A5] transition hover:bg-[#3CC8A5]/10 focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/40"
+                className="rounded-lg border border-[#18D6C9] bg-white px-4 py-2 text-sm font-semibold text-[#12163F] transition-all duration-200 hover:bg-[#E9FFFC] focus:outline-none focus:ring-2 focus:ring-[#18D6C9]/40"
               >
                 Sign Out
               </button>
@@ -86,7 +90,7 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
                 type="button"
                 onClick={onLogin}
                 disabled={isLoading}
-                className="rounded-lg border border-[#3CC8A5] px-4 py-2 text-sm font-semibold text-[#3CC8A5] transition hover:bg-[#3CC8A5]/10 focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/40 disabled:opacity-60"
+                className="rounded-lg border border-[#5B3FFF] bg-white px-5 py-2 text-sm font-semibold text-[#5B3FFF] shadow-sm transition-all duration-200 hover:bg-[#F1ECFF] focus:outline-none focus:ring-2 focus:ring-[#5B3FFF]/30 disabled:opacity-60"
               >
                 Log in
               </button>
@@ -94,7 +98,7 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
                 type="button"
                 onClick={onSignup}
                 disabled={isLoading}
-                className="rounded-lg bg-[#F45B5B] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#F45B5B]/35 disabled:opacity-60"
+                className="rounded-lg bg-gradient-to-br from-[#FF2D9A] to-[#8B5CFF] px-5 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,45,154,0.24)] transition-all duration-200 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[#FF2D9A]/35 disabled:opacity-60"
               >
                 Sign up
               </button>
@@ -118,13 +122,13 @@ function HeaderAvatar({
       <img
         src={avatarUrl}
         alt=""
-        className="h-9 w-9 shrink-0 rounded-full border border-white object-cover"
+        className="h-9 w-9 shrink-0 rounded-full border-2 border-[#18D6C9] object-cover"
       />
     )
   }
 
   return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white bg-[#3CC8A5]/20 text-xs font-bold text-[#02745d]">
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[#18D6C9] bg-[#E9FFFC] text-xs font-bold text-[#12163F]">
       {initials(username)}
     </span>
   )

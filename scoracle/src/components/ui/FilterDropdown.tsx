@@ -65,14 +65,14 @@ export function FilterDropdown({
 
   return (
     <div ref={containerRef} className="relative grid gap-0.5 text-left">
-      <span className="text-[11px] font-semibold uppercase leading-4 text-[#5f6664] sm:text-xs">
+      <span className="text-xs font-bold uppercase leading-4 text-[#555B7A]">
         {label}
       </span>
       <button
         type="button"
         onClick={() => onOpenChange(!isOpen)}
         disabled={disabled}
-        className="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-2 text-base font-medium leading-5 text-[#333333] focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3"
+        className="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-[#DCD5FF] bg-white px-2 text-base font-semibold leading-5 text-[#12163F] shadow-sm focus:border-[#5B3FFF] focus:outline-none focus:ring-2 focus:ring-[#5B3FFF]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3"
         style={{ fontSize: '16px', fontWeight: 500 }}
         aria-expanded={isOpen}
       >
@@ -81,12 +81,12 @@ export function FilterDropdown({
         ) : (
           <span className="truncate">{selectedLabel}</span>
         )}
-        <ChevronDown className="h-4 w-4 shrink-0 text-[#5f6664]" />
+        <ChevronDown className="h-4 w-4 shrink-0 text-[#5B3FFF]" />
       </button>
 
       {isOpen && !disabled ? (
         <div
-          className={`absolute z-20 mt-2 max-h-80 ${minMenuWidthClass} overflow-auto rounded-lg border border-[#DADADA] bg-white p-1 shadow-[0_8px_24px_rgba(0,0,0,0.14)] motion-safe:animate-[dropdownIn_140ms_ease-out]`}
+          className={`absolute left-0 top-full z-40 mt-2 max-h-80 ${minMenuWidthClass} origin-top overflow-auto rounded-lg border border-[#DCD5FF] bg-white p-1 shadow-[0_16px_38px_rgba(91,63,255,0.16)] motion-safe:animate-[dropdownIn_140ms_ease-out]`}
         >
           {options.map((option) => (
             <button
@@ -101,8 +101,8 @@ export function FilterDropdown({
               }}
               className={`flex w-full items-center rounded-md px-2 py-2 text-left text-[16px] font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
                 selectedValue === option.value
-                  ? 'bg-[#E8F4FA] text-[#333333]'
-                  : 'hover:bg-[#F9F9F9]'
+                  ? 'bg-[#F1ECFF] text-[#5B3FFF]'
+                  : 'text-[#12163F] hover:bg-[#E9FFFC]'
               }`}
             >
               {renderOption ? (

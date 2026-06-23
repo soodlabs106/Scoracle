@@ -65,11 +65,17 @@ export function AuthCallbackPage() {
     <main className="min-h-screen bg-[#F9F9F9] px-4 py-10 text-[#333333]">
       <section className="mx-auto max-w-md rounded-lg border border-[#DADADA] bg-white p-6 text-center shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
         <img
-          src="/scoracle-base.png"
+          src="/scoracle-logo.png"
           alt=""
           className="mx-auto h-14 w-14 rounded-lg object-contain"
         />
-        <h1 className="mt-4 text-2xl font-bold">Scoracle</h1>
+        <h1 className="mt-4 flex justify-center">
+          <img
+            src="/scoracle-lettering.png"
+            alt="Scoracle"
+            className="h-8 w-auto object-contain"
+          />
+        </h1>
         <p
           className={`mt-4 rounded-lg border px-3 py-2 text-sm font-semibold ${
             isError

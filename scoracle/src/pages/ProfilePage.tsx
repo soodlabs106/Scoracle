@@ -438,10 +438,10 @@ export function ProfilePage() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-[#F9F9F9] text-[#333333]">
+      <main className="min-h-screen bg-[#F7F5FF] text-[#12163F]">
         <Header onLogin={() => undefined} onSignup={() => undefined} />
         <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-          <p className="rounded-lg border border-[#DADADA] bg-white p-5 text-sm font-semibold">
+          <p className="rounded-lg border border-[#DCD5FF] bg-white p-5 text-sm font-semibold">
             Loading profile...
           </p>
         </div>
@@ -639,25 +639,25 @@ export function ProfilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F9F9F9] text-[#333333]">
+    <main className="min-h-screen bg-[#F7F5FF] text-[#12163F]">
       <Header onLogin={() => undefined} onSignup={() => undefined} />
 
       <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
         <div className="relative mb-5 pr-12">
           <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#E8F4FA] text-[#3CC8A5]">
+            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#F1ECFF] text-[#5B3FFF]">
               <UserRound className="h-6 w-6" />
             </span>
             <div>
               <h2 className="text-2xl font-bold">Profile</h2>
-              <p className="text-sm text-[#5f6664]">
+              <p className="text-sm font-medium text-[#555B7A]">
                 Manage your Scoracle identity and prediction history.
               </p>
             </div>
           </div>
           <Link
             to="/"
-            className="absolute right-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#3CC8A5] bg-white text-[#3CC8A5] transition hover:bg-[#3CC8A5]/10"
+            className="absolute right-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#5B3FFF] bg-white text-[#5B3FFF] transition-all duration-200 hover:bg-[#F1ECFF]"
             aria-label="Back to predictions"
             title="Back to predictions"
           >
@@ -668,14 +668,14 @@ export function ProfilePage() {
         <div className="grid gap-4 lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
           <form
             onSubmit={handleSave}
-            className="self-start rounded-lg border border-[#DADADA] bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+            className="self-start rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-[0_12px_32px_rgba(18,22,63,0.08)]"
           >
             <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 <AvatarPreview avatarUrl={avatarUrl} username={profile.username} />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-xl font-bold">{profile.username}</p>
-                  <p className="mt-1 text-sm font-semibold text-[#5f6664]">
+                  <p className="mt-1 truncate text-sm font-semibold text-[#555B7A]">
                     {profile.email}
                   </p>
                 </div>
@@ -689,7 +689,7 @@ export function ProfilePage() {
                       setMessage(null)
                       setError(null)
                     }}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#333333] transition hover:bg-[#E8F4FA]"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#12163F] transition hover:bg-[#F1ECFF]"
                     aria-label="Edit profile"
                     title="Edit profile"
                   >
@@ -698,7 +698,7 @@ export function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => setIsProfileDetailsOpen((value) => !value)}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#333333] transition hover:bg-[#E8F4FA]"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#12163F] transition hover:bg-[#F1ECFF]"
                     aria-label={
                       isProfileDetailsOpen
                         ? 'Hide profile details'
@@ -739,8 +739,8 @@ export function ProfilePage() {
                   label="Last name"
                   value={profile.last_name ?? 'Not set'}
                 />
-                <div className="rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 py-3">
-                  <p className="text-xs font-semibold uppercase text-[#5f6664]">
+                <div className="rounded-lg border border-[#DCD5FF] bg-[#F7F5FF] px-3 py-3">
+                  <p className="text-xs font-semibold uppercase text-[#555B7A]">
                     Favorite club
                   </p>
                   <div className="mt-2 flex items-center gap-2 text-sm font-bold">
@@ -755,7 +755,7 @@ export function ProfilePage() {
                   Profile photo
                   <div className="mt-2 flex items-center gap-3">
                     <AvatarPreview avatarUrl={avatarUrl} username={username} />
-                    <span className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#DADADA] px-3 text-sm font-semibold text-[#333333]">
+                    <span className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#DCD5FF] bg-[#F1ECFF] px-3 text-sm font-semibold text-[#5B3FFF]">
                       <Camera className="h-4 w-4" />
                       Choose photo
                     </span>
@@ -768,7 +768,7 @@ export function ProfilePage() {
                     }
                     className="sr-only"
                   />
-                  <span className="mt-2 block text-xs font-medium text-[#5f6664]">
+                  <span className="mt-2 block text-xs font-medium text-[#555B7A]">
                     JPG, PNG, or WebP. Max 3 MB before upload; Scoracle stores a compressed 512px WebP.
                   </span>
                 </label>
@@ -778,9 +778,9 @@ export function ProfilePage() {
                   <input
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
-                    className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] px-3 text-base focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+                    className="mt-1 h-11 w-full rounded-lg border border-[#DCD5FF] px-3 text-base focus:border-[#5B3FFF] focus:outline-none focus:ring-2 focus:ring-[#5B3FFF]/20"
                   />
-                  <span className="mt-1 block text-xs font-medium text-[#5f6664]">
+                  <span className="mt-1 block text-xs font-medium text-[#555B7A]">
                     Spaces and casing are ignored when checking uniqueness.
                   </span>
                 </label>
@@ -791,7 +791,7 @@ export function ProfilePage() {
                     <input
                       value={firstName}
                       onChange={(event) => setFirstName(event.target.value)}
-                      className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] px-3 text-base focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+                      className="mt-1 h-11 w-full rounded-lg border border-[#DCD5FF] px-3 text-base focus:border-[#5B3FFF] focus:outline-none focus:ring-2 focus:ring-[#5B3FFF]/20"
                     />
                   </label>
                   <label className="block text-sm font-semibold text-[#333333]">
@@ -799,7 +799,7 @@ export function ProfilePage() {
                     <input
                       value={lastName}
                       onChange={(event) => setLastName(event.target.value)}
-                      className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] px-3 text-base focus:border-[#3CC8A5] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+                      className="mt-1 h-11 w-full rounded-lg border border-[#DCD5FF] px-3 text-base focus:border-[#5B3FFF] focus:outline-none focus:ring-2 focus:ring-[#5B3FFF]/20"
                     />
                   </label>
                 </div>
@@ -868,7 +868,7 @@ export function ProfilePage() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#3CC8A5] px-4 text-sm font-semibold text-white transition hover:bg-[#F45B5B] disabled:opacity-60"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-[#FF2D9A] to-[#8B5CFF] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,45,154,0.22)] transition-all duration-200 hover:brightness-110 disabled:opacity-60"
                 >
                   <Save className="h-4 w-4" />
                   {isSaving ? 'Saving...' : 'Save profile'}
@@ -877,7 +877,7 @@ export function ProfilePage() {
                   type="button"
                   onClick={handleEditCancel}
                   disabled={isSaving}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#DADADA] px-4 text-sm font-semibold text-[#333333] transition hover:bg-[#F9F9F9] disabled:opacity-60"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#DCD5FF] px-4 text-sm font-semibold text-[#12163F] transition hover:bg-[#F1ECFF] disabled:opacity-60"
                 >
                   <X className="h-4 w-4" />
                   Cancel
@@ -886,11 +886,11 @@ export function ProfilePage() {
             ) : null}
           </form>
 
-          <section className="rounded-lg border border-[#DADADA] bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
+          <section className="rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-[0_12px_32px_rgba(18,22,63,0.08)]">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-xl font-semibold">Prediction History</h3>
-                <p className="text-sm text-[#5f6664]">
+                <p className="text-sm font-medium text-[#555B7A]">
                   Grouped by match week with scored results when available.
                 </p>
               </div>
@@ -923,13 +923,13 @@ export function ProfilePage() {
             </div>
 
             {isHistoryLoading ? (
-              <p className="mt-4 rounded-lg border border-[#DADADA] bg-[#F9F9F9] p-4 text-sm font-semibold">
+              <p className="mt-4 rounded-lg border border-[#DCD5FF] bg-[#F7F5FF] p-4 text-sm font-semibold">
                 Loading predictions...
               </p>
             ) : null}
 
             {!isHistoryLoading && groupedHistory.length === 0 ? (
-              <p className="mt-4 rounded-lg border border-dashed border-[#DADADA] bg-[#F9F9F9] p-5 text-center text-sm font-semibold text-[#5f6664]">
+              <p className="mt-4 rounded-lg border border-dashed border-[#DCD5FF] bg-[#F7F5FF] p-5 text-center text-sm font-semibold text-[#555B7A]">
                 No saved predictions yet.
               </p>
             ) : null}
@@ -941,15 +941,15 @@ export function ProfilePage() {
                 return (
                   <div
                     key={matchWeek}
-                    className="overflow-hidden rounded-lg border border-[#DADADA]"
+                    className="overflow-hidden rounded-lg border border-[#DCD5FF]"
                   >
                     <button
                       type="button"
                       onClick={() => toggleHistoryWeek(matchWeek)}
-                      className="flex w-full items-center justify-between gap-3 bg-white px-3 py-3 text-left"
+                      className="flex w-full items-center justify-between gap-3 bg-gradient-to-r from-white to-[#F7F5FF] px-3 py-3 text-left"
                       aria-expanded={isExpanded}
                     >
-                      <span className="text-sm font-bold uppercase text-[#03718a]">
+                      <span className="text-sm font-bold uppercase text-[#5B3FFF]">
                         Match Week {matchWeek}
                       </span>
                       <span className="inline-flex items-center gap-2 text-sm font-bold text-[#333333]">
@@ -964,7 +964,7 @@ export function ProfilePage() {
 
                     {isExpanded ? (
                       <table className="w-full table-fixed text-left text-[11px] sm:text-xs">
-                        <thead className="bg-[#E8F4FA] text-[10px] uppercase text-[#5f6664] sm:text-xs">
+                        <thead className="bg-gradient-to-r from-[#5B3FFF] to-[#FF2D9A] text-[10px] uppercase text-white sm:text-xs">
                           <tr>
                             <th className="w-[21%] px-1.5 py-2 sm:px-2">
                               Fixture
@@ -987,7 +987,7 @@ export function ProfilePage() {
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#DADADA]">
+                        <tbody className="divide-y divide-[#DCD5FF]">
                           {items.map((item) => {
                             const closeness =
                               item.prediction.closeness ?? 'NOT_SCORED'
@@ -1246,13 +1246,13 @@ function AvatarPreview({
       <img
         src={avatarUrl}
         alt=""
-        className="h-20 w-20 shrink-0 rounded-lg border border-[#DADADA] object-cover"
+        className="h-20 w-20 shrink-0 rounded-lg border-2 border-[#18D6C9] object-cover"
       />
     )
   }
 
   return (
-    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border border-[#DADADA] bg-[#E8F4FA] text-xl font-bold text-[#03718a]">
+    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border-2 border-[#18D6C9] bg-[#E9FFFC] text-xl font-bold text-[#12163F]">
       {initials(username)}
     </div>
   )
@@ -1270,7 +1270,7 @@ function ClubCrest({ team }: { team?: Team }) {
   }
 
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#3CC8A5]/15 text-xs font-bold text-[#02745d]">
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E9FFFC] text-xs font-bold text-[#12163F]">
       {team ? initials(team.shortName) : 'PL'}
     </span>
   )
@@ -1278,9 +1278,9 @@ function ClubCrest({ team }: { team?: Team }) {
 
 function ProfileValue({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-[#DADADA] bg-[#F9F9F9] px-3 py-3">
-      <p className="text-xs font-semibold uppercase text-[#5f6664]">{label}</p>
-      <p className="mt-1 break-words text-sm font-bold text-[#333333]">
+    <div className="rounded-lg border border-[#DCD5FF] bg-[#F7F5FF] px-3 py-3">
+      <p className="text-xs font-semibold uppercase text-[#555B7A]">{label}</p>
+      <p className="mt-1 break-words text-sm font-bold text-[#12163F]">
         {value}
       </p>
     </div>
@@ -1294,7 +1294,7 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
       <input
         value={value}
         readOnly
-        className="mt-1 h-11 w-full rounded-lg border border-[#DADADA] bg-[#F1F1F1] px-3 text-base font-semibold text-[#5f6664]"
+        className="mt-1 h-11 w-full rounded-lg border border-[#DCD5FF] bg-[#F1ECFF] px-3 text-base font-semibold text-[#555B7A]"
       />
     </label>
   )

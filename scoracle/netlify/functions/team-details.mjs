@@ -14,7 +14,7 @@ export async function handler(event) {
     return jsonResponse({ error: 'teamId is required' }, 400)
   }
 
-  const cacheKey = `team-details-v1:${compSeasonId}:${teamId}`
+  const cacheKey = `team-details-v2:${compSeasonId}:${teamId}`
 
   try {
     const cached = await readSupabaseCache(cacheKey)
@@ -25,7 +25,7 @@ export async function handler(event) {
 
     const [playersResponse, topScorerResponse] = await Promise.allSettled([
       fetchJson(
-        `${PULSE_BASE_URL}/players?comps=1&compSeasons=${compSeasonId}&clubs=${encodeURIComponent(
+        `${PULSE_BASE_URL}/players?compSeasons=${compSeasonId}&teams=${encodeURIComponent(
           teamId,
         )}&page=0&pageSize=100`,
       ),
@@ -39,7 +39,7 @@ export async function handler(event) {
     let squadSource = 'Premier League Pulse'
     let squad =
       playersResponse.status === 'fulfilled'
-        ? normalizePlayers(playersResponse.value)
+        ? normalizePlayers(playersResponse.value, teamId)
         : []
 
     if (squad.length === 0 && teamName) {
@@ -85,9 +85,20 @@ async function fetchJson(url) {
   return response.json()
 }
 
-function normalizePlayers(response) {
+function normalizePlayers(response, teamId) {
   const rows = getArrayContent(response)
   const players = rows
+    .filter((row) => {
+      const currentTeam = row.currentTeam ?? row.player?.currentTeam
+      const currentTeamId = String(currentTeam?.id ?? '')
+      const currentClubId = String(currentTeam?.club?.id ?? '')
+      const teamType = String(currentTeam?.teamType ?? '').toUpperCase()
+
+      return (
+        teamType === 'FIRST' &&
+        (currentTeamId === teamId || currentClubId === teamId)
+      )
+    })
     .map((row) => {
       const player = row.player ?? row.owner ?? row.person ?? row
       const id = String(player.id ?? player.playerId ?? row.id ?? '')

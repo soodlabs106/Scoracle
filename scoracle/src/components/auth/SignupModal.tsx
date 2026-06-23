@@ -261,7 +261,7 @@ export function SignupModal({ onClose, onSwitchToLogin }: SignupModalProps) {
         <button
           type="submit"
           disabled={isSubmitting || !canSubmit}
-          className="h-11 w-full rounded-lg bg-[#F45B5B] px-4 text-sm font-semibold text-white transition hover:bg-[#3CC8A5] disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-11 w-full rounded-lg bg-gradient-to-br from-[#FF2D9A] to-[#8B5CFF] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,45,154,0.22)] transition-all duration-200 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? 'Creating account...' : 'Create account'}
         </button>
@@ -269,7 +269,7 @@ export function SignupModal({ onClose, onSwitchToLogin }: SignupModalProps) {
         <button
           type="button"
           onClick={onSwitchToLogin}
-          className="w-full text-sm font-semibold text-[#3CC8A5] hover:underline"
+          className="w-full text-sm font-semibold text-[#5B3FFF] hover:underline"
         >
           Already have an account? Log in
         </button>

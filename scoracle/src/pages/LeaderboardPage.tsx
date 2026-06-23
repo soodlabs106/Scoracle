@@ -159,7 +159,7 @@ export function LeaderboardPage() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-[#F9F9F9] text-[#333333]">
+      <main className="min-h-screen bg-[#F7F5FF] text-[#12163F]">
         <Header onLogin={() => undefined} onSignup={() => undefined} />
         <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
           <EmptyState message="Loading leaderboard..." />
@@ -173,25 +173,25 @@ export function LeaderboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F9F9F9] text-[#333333]">
+    <main className="min-h-screen bg-[#F7F5FF] text-[#12163F]">
       <Header onLogin={() => undefined} onSignup={() => undefined} />
 
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <div className="relative mb-5 pr-12">
           <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#E8F4FA] text-[#3CC8A5]">
+            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#F1ECFF] text-[#5B3FFF]">
               <Trophy className="h-6 w-6" />
             </span>
             <div>
               <h2 className="text-2xl font-bold">Leaderboard</h2>
-              <p className="text-sm text-[#5f6664]">
+              <p className="text-sm font-medium text-[#555B7A]">
                 Track weekly points, exact scores, and overall rank.
               </p>
             </div>
           </div>
           <Link
             to="/"
-            className="absolute right-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#3CC8A5] bg-white text-[#3CC8A5] transition hover:bg-[#3CC8A5]/10"
+            className="absolute right-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#5B3FFF] bg-white text-[#5B3FFF] transition-all duration-200 hover:bg-[#F1ECFF]"
             aria-label="Back to predictions"
             title="Back to predictions"
           >
@@ -205,8 +205,8 @@ export function LeaderboardPage() {
           </p>
         ) : null}
 
-        <div className="mb-4 flex flex-col gap-3 rounded-lg border border-[#DADADA] bg-white p-3 shadow-[0_4px_12px_rgba(0,0,0,0.06)] sm:flex-row sm:items-center sm:justify-between">
-          <div className="inline-grid grid-cols-2 rounded-lg border border-[#DADADA] bg-[#F9F9F9] p-1">
+        <div className="mb-4 flex flex-col gap-3 rounded-lg border border-[#DCD5FF] bg-white p-3 shadow-[0_12px_32px_rgba(18,22,63,0.08)] sm:flex-row sm:items-center sm:justify-between">
+          <div className="inline-grid grid-cols-2 rounded-lg border border-[#DCD5FF] bg-[#F7F5FF] p-1">
             <TabButton
               label="Overall"
               isActive={activeTab === 'overall'}
@@ -344,7 +344,7 @@ function RankTimelineChart({
   const padding = { top: 28, right: 28, bottom: 46, left: 54 }
   const plotWidth = width - padding.left - padding.right
   const plotHeight = height - padding.top - padding.bottom
-  const colors = ['#F45B5B', '#3CC8A5', '#4DB7E8', '#8a5a00', '#5f6664']
+  const colors = ['#FF2D9A', '#5B3FFF', '#18D6C9', '#2F6BFF', '#555B7A']
   const rowsByUserWeek = new Map(
     rows.map((row) => [`${row.user_id}:${row.match_week}`, row]),
   )
@@ -372,11 +372,11 @@ function RankTimelineChart({
   }
 
   return (
-    <section className="mb-4 rounded-lg border border-[#DADADA] bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
+    <section className="mb-4 rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-[0_12px_32px_rgba(18,22,63,0.08)]">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-lg font-bold">Rank movement</h3>
-          <p className="text-sm text-[#5f6664]">
+          <p className="text-sm font-medium text-[#555B7A]">
             Cumulative rank after each completed match week.
           </p>
         </div>
@@ -384,7 +384,7 @@ function RankTimelineChart({
           {users.map((user, index) => (
             <span
               key={user.user_id}
-              className="inline-flex items-center gap-2 rounded-full border border-[#DADADA] px-2 py-1 text-xs font-bold"
+              className="inline-flex items-center gap-2 rounded-full border border-[#DCD5FF] bg-[#F7F5FF] px-2 py-1 text-xs font-bold text-[#12163F]"
             >
               <span
                 className="h-2.5 w-2.5 rounded-full"
@@ -414,14 +414,14 @@ function RankTimelineChart({
               y1={padding.top}
               x2={padding.left}
               y2={padding.top + plotHeight}
-              stroke="#DADADA"
+              stroke="#DCD5FF"
             />
             <line
               x1={padding.left}
               y1={padding.top + plotHeight}
               x2={padding.left + plotWidth}
               y2={padding.top + plotHeight}
-              stroke="#DADADA"
+              stroke="#DCD5FF"
             />
 
             {Array.from({ length: maxRank }, (_, index) => {
@@ -624,8 +624,8 @@ function TabButton({
       onClick={onClick}
       className={`h-10 rounded-md px-4 text-sm font-semibold transition ${
         isActive
-          ? 'bg-white text-[#333333] shadow-[0_2px_8px_rgba(0,0,0,0.08)]'
-          : 'text-[#5f6664] hover:text-[#333333]'
+          ? 'bg-white text-[#5B3FFF] shadow-[0_8px_18px_rgba(91,63,255,0.12)]'
+          : 'text-[#555B7A] hover:text-[#12163F]'
       }`}
     >
       {label}
@@ -656,8 +656,8 @@ function UserSummary({
     : row.total_points
 
   return (
-    <section className="mb-4 rounded-lg border border-[#3CC8A5]/45 bg-[#3CC8A5]/10 p-4">
-      <p className="text-xs font-bold uppercase text-[#02745d]">{label}</p>
+    <section className="mb-4 rounded-lg border border-[#DCD5FF] bg-gradient-to-br from-[#F1ECFF] to-[#E9FFFC] p-4 shadow-[0_12px_32px_rgba(18,22,63,0.08)]">
+      <p className="text-xs font-bold uppercase text-[#5B3FFF]">{label}</p>
       <div className="mt-2 grid gap-3 sm:grid-cols-4">
         <SummaryValue label="Rank" value={`#${rank}`} />
         <SummaryValue label={pointsLabel} value={points.toString()} />
@@ -670,9 +670,9 @@ function UserSummary({
 
 function SummaryValue({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/70 bg-white px-3 py-2">
-      <p className="text-xs font-semibold uppercase text-[#5f6664]">{label}</p>
-      <p className="mt-1 text-lg font-bold text-[#333333]">{value}</p>
+    <div className="rounded-lg border border-white/70 bg-white px-3 py-2 shadow-sm">
+      <p className="text-xs font-semibold uppercase text-[#555B7A]">{label}</p>
+      <p className="mt-1 text-lg font-extrabold text-[#12163F]">{value}</p>
     </div>
   )
 }
@@ -705,10 +705,10 @@ function LeaderboardTable<T extends LeaderboardRow | WeeklyDisplayRow>({
   }
 
   return (
-    <section className="overflow-hidden rounded-lg border border-[#DADADA] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
+    <section className="overflow-hidden rounded-lg border border-[#DCD5FF] bg-white shadow-[0_12px_32px_rgba(18,22,63,0.08)]">
       <div className="overflow-hidden">
         <table className="w-full table-fixed text-left text-xs sm:text-sm">
-          <thead className="bg-[#E8F4FA] text-[10px] uppercase text-[#5f6664] sm:text-xs">
+          <thead className="bg-gradient-to-r from-[#5B3FFF] to-[#FF2D9A] text-[10px] uppercase text-white sm:text-xs">
             <tr>
               <th className="w-[22%] px-1.5 py-3 sm:px-3">Rank</th>
               <th className="w-[29%] px-1.5 py-3 sm:px-3">User</th>
@@ -735,7 +735,7 @@ function LeaderboardTable<T extends LeaderboardRow | WeeklyDisplayRow>({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#DADADA]">
+          <tbody className="divide-y divide-[#DCD5FF]">
             {rows.map((row, index) => {
               const rank = index + 1
               const isCurrentUser =
@@ -747,7 +747,11 @@ function LeaderboardTable<T extends LeaderboardRow | WeeklyDisplayRow>({
               return (
                 <tr
                   key={`${row.user_id}-${rank}`}
-                  className={isCurrentUser ? 'bg-[#FFF4CC]/55' : 'bg-white'}
+                  className={
+                    isCurrentUser
+                      ? 'bg-gradient-to-r from-[#F1ECFF] to-[#E9FFFC]'
+                      : 'bg-white'
+                  }
                 >
                   <td className="px-1.5 py-3 sm:px-3">
                     <div className="flex items-center gap-1 sm:gap-2">
@@ -762,10 +766,10 @@ function LeaderboardTable<T extends LeaderboardRow | WeeklyDisplayRow>({
                   <td className="truncate px-1.5 py-3 font-bold sm:px-3">
                     {row.username}
                   </td>
-                  <td className="hidden px-3 py-3 font-semibold text-[#5f6664] md:table-cell">
+                  <td className="hidden px-3 py-3 font-semibold text-[#555B7A] md:table-cell">
                     {row.favorite_club ?? 'Not selected'}
                   </td>
-                  <td className="px-1.5 py-3 text-right text-sm font-bold text-[#F45B5B] sm:px-3 sm:text-lg">
+                  <td className="px-1.5 py-3 text-right text-sm font-extrabold text-[#FF2D9A] sm:px-3 sm:text-lg">
                     {getPoints(row)}
                   </td>
                   <td className="px-1.5 py-3 text-right sm:px-3">
@@ -793,12 +797,12 @@ function LeaderboardTable<T extends LeaderboardRow | WeeklyDisplayRow>({
 function RankBadge({ rank }: { rank: number }) {
   const rankTone =
     rank === 1
-      ? 'border-[#EEDFA3] bg-[#FFF4CC] text-[#8a5a00]'
+      ? 'border-transparent bg-gradient-to-br from-[#FF2D9A] to-[#5B3FFF] text-white'
       : rank === 2
-        ? 'border-[#DADADA] bg-[#F1F1F1] text-[#5f6664]'
+        ? 'border-[#DCD5FF] bg-[#F1ECFF] text-[#5B3FFF]'
         : rank === 3
-          ? 'border-[#E4C4A8] bg-[#FFF0DD] text-[#8a4d19]'
-          : 'border-[#DADADA] bg-white text-[#333333]'
+          ? 'border-[#18D6C9]/45 bg-[#E9FFFC] text-[#2F6BFF]'
+          : 'border-[#DCD5FF] bg-white text-[#12163F]'
 
   return (
     <span
@@ -813,7 +817,7 @@ function RankBadge({ rank }: { rank: number }) {
 function MovementBadge({ movement }: { movement?: RankMovementRow }) {
   if (!movement || movement.previous_rank === null) {
     return (
-      <span className="rounded-full bg-[#E8F4FA] px-1.5 py-1 text-[10px] font-bold text-[#03718a] sm:px-2 sm:text-xs">
+      <span className="rounded-full bg-[#E9FFFC] px-1.5 py-1 text-[10px] font-bold text-[#2F6BFF] sm:px-2 sm:text-xs">
         New
       </span>
     )
@@ -821,7 +825,7 @@ function MovementBadge({ movement }: { movement?: RankMovementRow }) {
 
   if (!movement.rank_change) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-[#F1F1F1] px-1.5 py-1 text-[10px] font-bold text-[#5f6664] sm:px-2 sm:text-xs">
+      <span className="inline-flex items-center gap-1 rounded-full bg-[#F1ECFF] px-1.5 py-1 text-[10px] font-bold text-[#555B7A] sm:px-2 sm:text-xs">
         <Minus className="h-3 w-3" />
       </span>
     )
@@ -852,9 +856,9 @@ function StatBadge({
   tone: 'gold' | 'green' | 'blue'
 }) {
   const colors = {
-    gold: 'bg-[#FFF4CC] text-[#8a5a00]',
-    green: 'bg-[#E4FAF3] text-[#146b59]',
-    blue: 'bg-[#E8F4FA] text-[#03718a]',
+    gold: 'bg-[#FFF4CC] text-[#12163F]',
+    green: 'bg-[#E9FFFC] text-[#12163F]',
+    blue: 'bg-[#F1ECFF] text-[#5B3FFF]',
   }
 
   return (
@@ -868,7 +872,7 @@ function StatBadge({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-[#DADADA] bg-white p-5 text-center text-sm font-semibold text-[#5f6664]">
+    <div className="rounded-lg border border-dashed border-[#DCD5FF] bg-white p-5 text-center text-sm font-semibold text-[#555B7A]">
       {message}
     </div>
   )
