@@ -7,11 +7,13 @@ import {
   LockKeyhole,
   Pencil,
   Save,
+  Sparkles,
   Trash2,
   UserRound,
   X,
 } from 'lucide-react'
 import { Header } from '../components/layout/Header'
+import { useOnboarding } from '../components/onboarding/useOnboarding'
 import { FilterDropdown } from '../components/ui/FilterDropdown'
 import { useAuth } from '../context/useAuth'
 import { fetchHomeData, mockHomeData, type Team } from '../data/homeData'
@@ -93,6 +95,7 @@ export function ProfilePage() {
     updateProfile,
     checkUsernameAvailability,
   } = useAuth()
+  const { openTour } = useOnboarding()
   const [clubs, setClubs] = useState<Team[]>(mockHomeData.teams)
   const [username, setUsername] = useState('')
   const [firstName, setFirstName] = useState('')
@@ -748,6 +751,14 @@ export function ProfilePage() {
                     <span>{profile.favorite_club ?? 'Not selected'}</span>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={openTour}
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#DCD5FF] bg-white px-3 text-sm font-bold text-[#5B3FFF] transition hover:bg-[#F1ECFF] focus:outline-none focus:ring-2 focus:ring-[#5B3FFF]/25"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Replay tour
+                </button>
               </div>
             ) : (
               <div className="mt-5">

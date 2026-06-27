@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { logSessionActivity } from '../data/activityLogs'
 import type { AuthState, Profile } from '../types/auth'
 import {
   AuthContext,
@@ -14,6 +15,8 @@ import {
 } from './authContextCore'
 
 const INACTIVITY_LIMIT_MS = 5 * 60 * 1000
+const PROFILE_SELECT =
+  'id, username, email, first_name, last_name, role, is_disabled, favorite_club, avatar_url, avatar_path, onboarding_required, onboarding_completed_at, created_at'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
@@ -27,9 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select(
-        'id, username, email, first_name, last_name, role, is_disabled, favorite_club, avatar_url, avatar_path, created_at',
-      )
+      .select(PROFILE_SELECT)
       .eq('id', userId)
       .maybeSingle()
 
@@ -77,9 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               avatar_path: nextAvatarPath,
             })
             .eq('id', session.user.id)
-            .select(
-              'id, username, email, first_name, last_name, role, is_disabled, favorite_club, avatar_url, avatar_path, created_at',
-            )
+            .select(PROFILE_SELECT)
             .maybeSingle()
 
           if (!updateError && updatedProfile) {
@@ -134,16 +133,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setTimeout(() => {
-          applySession(session).catch((error) => {
+      (event, session) => {
+        setTimeout(async () => {
+          try {
+            const profile = await applySession(session)
+
+            if (event === 'SIGNED_IN' && session?.user && profile) {
+              const activityKey = `scoracle:activity:${session.user.id}:${session.expires_at ?? 'session'}`
+
+              if (window.sessionStorage.getItem(activityKey) !== 'logged') {
+                window.sessionStorage.setItem(activityKey, 'logged')
+                await logSessionActivity('SIGNED_IN', {
+                  provider:
+                    typeof session.user.app_metadata.provider === 'string'
+                      ? session.user.app_metadata.provider
+                      : 'unknown',
+                })
+              }
+            }
+          } catch (error) {
             console.error(error)
             setState((current) => ({
               ...current,
               isLoading: false,
               message: 'Could not sync your auth session.',
             }))
-          })
+          }
         }, 0)
       },
     )
@@ -242,6 +257,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
+    await logSessionActivity('SIGNED_OUT', { reason: 'manual' })
+
     const { error } = await supabase.auth.signOut()
 
     if (error) {
@@ -272,6 +289,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function handleInactive() {
       try {
+        await logSessionActivity('SESSION_TIMEOUT', { reason: 'inactivity' })
         await supabase.auth.signOut()
       } finally {
         setState({
@@ -416,9 +434,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           avatar_path: nextAvatarPath,
         })
         .eq('id', state.user.id)
-        .select(
-          'id, username, email, first_name, last_name, role, is_disabled, favorite_club, avatar_url, avatar_path, created_at',
-        )
+        .select(PROFILE_SELECT)
         .single()
 
       if (error) {
@@ -469,6 +485,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return profile
   }, [fetchProfile, state.user])
 
+  const completeOnboarding = useCallback(async () => {
+    if (!state.user) {
+      throw new Error('You must be signed in to complete onboarding.')
+    }
+
+    const completedAt = new Date().toISOString()
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        onboarding_required: false,
+        onboarding_completed_at: completedAt,
+      })
+      .eq('id', state.user.id)
+      .select(PROFILE_SELECT)
+      .single()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    setState((current) => ({
+      ...current,
+      profile: data as Profile,
+    }))
+  }, [state.user])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       ...state,
@@ -483,11 +525,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateUsername,
       updateProfile,
       refreshProfile,
+      completeOnboarding,
     }),
     [
       refreshProfile,
       resetPassword,
       checkUsernameAvailability,
+      completeOnboarding,
       signIn,
       signInWithGoogle,
       signOut,

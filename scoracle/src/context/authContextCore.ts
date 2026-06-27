@@ -28,6 +28,7 @@ export type AuthContextValue = AuthState & {
     avatarPath?: string | null
   }) => Promise<Profile>
   refreshProfile: () => Promise<Profile | null>
+  completeOnboarding: () => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

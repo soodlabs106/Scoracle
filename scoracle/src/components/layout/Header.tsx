@@ -43,7 +43,10 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
               {message}
             </span>
           ) : (
-            <span className="hidden items-center gap-2 rounded-full border border-[#DCD5FF] bg-[#F1ECFF] px-4 py-2 text-xs font-bold text-[#5B3FFF] shadow-[0_8px_20px_rgba(91,63,255,0.10)] sm:inline-flex">
+            <span
+              data-tour-id="mode"
+              className="hidden items-center gap-2 rounded-full border border-[#DCD5FF] bg-[#F1ECFF] px-4 py-2 text-xs font-bold text-[#5B3FFF] shadow-[0_8px_20px_rgba(91,63,255,0.10)] sm:inline-flex"
+            >
               <Sparkles className="h-4 w-4 text-[#5B3FFF]" />
               {profile ? 'Prediction mode' : 'Fixture mode'}
             </span>
@@ -53,6 +56,7 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
             <>
               <Link
                 to="/leaderboard"
+                data-tour-id="leaderboard-link"
                 className="rounded-lg border border-[#DCD5FF] bg-white px-4 py-2 text-sm font-semibold text-[#12163F] shadow-sm transition-all duration-200 hover:bg-[#F1ECFF]"
               >
                 Leaderboard
@@ -67,6 +71,7 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
               ) : null}
               <Link
                 to="/profile"
+                data-tour-id="profile-link"
                 className="inline-flex h-11 items-center gap-2 rounded-full border border-[#DCD5FF] bg-[#E9FFFC] py-1 pl-1 pr-3 text-sm font-semibold text-[#12163F] shadow-sm transition-all duration-200 hover:bg-[#F1ECFF]"
                 title="Open profile"
               >

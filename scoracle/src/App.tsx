@@ -730,6 +730,7 @@ function App() {
 
             {isPredictionMode ? (
               <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] items-end gap-2">
+                <div data-tour-id="matchweek-selector">
                 <FilterDropdown
                   label="Match week"
                   selectedValue={activePredictionMatchweek}
@@ -751,6 +752,7 @@ function App() {
                     setSelectedPredictionMatchweek(value)
                   }}
                 />
+                </div>
                 <span
                   className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-semibold ${
                     predictionLockInfo.isLocked
@@ -765,6 +767,7 @@ function App() {
                 </span>
                 <button
                   type="button"
+                  data-tour-id="save-predictions"
                   onClick={savePredictions}
                   disabled={
                     isSavingPredictions ||
@@ -1166,7 +1169,10 @@ function FixtureCard({
   const displayPrediction = getFixturePredictionDisplay(fixture, prediction)
 
   return (
-    <article className="overflow-hidden rounded-lg border border-[#DCD5FF] bg-white shadow-[0_12px_32px_rgba(18,22,63,0.08)] transition-all duration-200 hover:shadow-[0_18px_44px_rgba(91,63,255,0.14)]">
+    <article
+      data-tour-id={predictionMode ? 'prediction-card' : undefined}
+      className="overflow-hidden rounded-lg border border-[#DCD5FF] bg-white shadow-[0_12px_32px_rgba(18,22,63,0.08)] transition-all duration-200 hover:shadow-[0_18px_44px_rgba(91,63,255,0.14)]"
+    >
       <div
         className={`relative grid border-l-8 ${accentClass} xl:grid-cols-[minmax(290px,1.65fr)_minmax(130px,0.72fr)_minmax(170px,0.9fr)] ${
           predictionMode
