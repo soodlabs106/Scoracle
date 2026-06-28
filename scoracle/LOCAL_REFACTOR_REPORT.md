@@ -27,7 +27,7 @@ Restore point: `restore/pre-production-refactor` at `4f2be99`.
 ## Current Verification
 
 - `npm run lint`: pass.
-- `npm run test`: 19 tests pass across scoring, password, Help, provider validation, OAuth avatar safety, and admin authorization.
+- `npm run test`: 21 tests pass across scoring, password, Help, provider validation, OAuth avatar safety, admin authorization, and RPC compatibility.
 - `npm run build`: pass, including browser and Netlify TypeScript checks.
 - `supabase db reset --local`: all 17 migrations apply from an empty database.
 - `supabase db lint --local`: no schema errors.
@@ -42,6 +42,7 @@ Restore point: `restore/pre-production-refactor` at `4f2be99`.
 - `service_role` bypasses RLS but still needs SQL table privileges under modern defaults. Explicit application-table and sequence grants were added for Netlify sync, cache, avatar, and admin operations.
 - A disabled-user sign-out event could erase the required disabled-account message. The auth state transition now preserves an explicit sign-out reason.
 - Parallel Playwright workers overwhelmed the local Docker stack and created false failures. Local runs are serialized; CI remains capped at two workers.
+- Profile and Leaderboard now fall back to the existing per-match-week rank RPCs when `get_rank_timeline()` has not yet been migrated, while unrelated database errors remain visible.
 
 ## Remaining Risk
 

@@ -106,10 +106,30 @@ export async function fetchRankTimeline() {
   const { data, error } = await supabase.rpc('get_rank_timeline')
 
   if (error) {
+    if (isMissingRankTimelineFunction(error)) {
+      const matchWeeks = await fetchScoredMatchWeeks()
+      const weeklyMovement = await Promise.all(
+        matchWeeks.map((matchWeek) => fetchRankMovement(matchWeek)),
+      )
+      return weeklyMovement.flat()
+    }
+
     throw new Error(error.message)
   }
 
   return normalizeRankMovementRows(data ?? [])
+}
+
+function isMissingRankTimelineFunction(error: {
+  code?: string
+  message?: string
+}) {
+  return (
+    error.code === 'PGRST202' ||
+    error.message?.includes(
+      'Could not find the function public.get_rank_timeline',
+    ) === true
+  )
 }
 
 async function loadLocalSimulation() {
