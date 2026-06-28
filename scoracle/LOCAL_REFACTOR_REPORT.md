@@ -33,6 +33,7 @@ Restore point: `restore/pre-production-refactor` at `4f2be99`.
 - `supabase db lint --local`: no schema errors.
 - `supabase test db`: 15 pgTAP assertions pass across object privileges, RLS, active/disabled/admin access, 24-hour locking, and trigger-based scoring.
 - Playwright: 8 tests pass across desktop and mobile, covering public Help, normal-user profile access, non-admin denial, disabled-user eviction, and admin access.
+- Public home horizontal-overflow regression: mobile (390px), tablet (768px), and tablet-wide (1024px) pass.
 - Generated Supabase schema types are wired into the browser client.
 - Largest emitted chunks: React 221.54 kB, Supabase 201.26 kB, home 85.83 kB before gzip. No Vite chunk warning.
 

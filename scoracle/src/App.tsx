@@ -622,7 +622,7 @@ function App() {
       />
 
       <main>
-        <section className="mx-auto grid max-w-[1600px] gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(330px,0.95fr)_minmax(460px,1.55fr)_minmax(230px,0.65fr)] lg:px-8">
+        <section className="mx-auto grid max-w-[1600px] gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(280px,0.95fr)_minmax(360px,1.2fr)_minmax(240px,0.85fr)] lg:px-8 xl:grid-cols-[minmax(330px,0.95fr)_minmax(460px,1.55fr)_minmax(230px,0.65fr)]">
         <section className="rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-[0_12px_32px_rgba(18,22,63,0.08)] lg:hidden">
           <button
             type="button"
@@ -658,7 +658,7 @@ function App() {
           />
         </aside>
 
-        <section className="flex min-h-0 flex-col gap-4 self-start lg:sticky lg:top-5 lg:max-h-[calc(100vh-40px)]">
+        <section className="flex min-h-0 min-w-0 flex-col gap-4 self-start lg:sticky lg:top-5 lg:max-h-[calc(100vh-40px)]">
           <div className="shrink-0 rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-[0_12px_32px_rgba(18,22,63,0.08)]">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -1031,14 +1031,14 @@ function StandingsTable({
       <table className="w-full table-fixed text-left text-xs">
         <thead className="bg-gradient-to-r from-[#5B3FFF] to-[#FF2D9A] text-white">
           <tr>
-            <th className="w-8 px-2 py-2 font-semibold">#</th>
-            <th className="px-2 py-2 font-semibold">Club</th>
-            <th className="w-8 px-1 py-2 text-center font-semibold">P</th>
-            <th className="w-8 px-1 py-2 text-center font-semibold">W</th>
-            <th className="w-8 px-1 py-2 text-center font-semibold">D</th>
-            <th className="w-8 px-1 py-2 text-center font-semibold">L</th>
-            <th className="w-9 px-1 py-2 text-center font-semibold">GD</th>
-            <th className="w-9 px-1 py-2 text-center font-semibold">Pts</th>
+            <th className="w-6 px-1 py-2 font-semibold xl:w-8 xl:px-2">#</th>
+            <th className="px-1 py-2 font-semibold xl:px-2">Club</th>
+            <th className="w-6 px-0.5 py-2 text-center font-semibold xl:w-8 xl:px-1">P</th>
+            <th className="w-6 px-0.5 py-2 text-center font-semibold xl:w-8 xl:px-1">W</th>
+            <th className="w-6 px-0.5 py-2 text-center font-semibold xl:w-8 xl:px-1">D</th>
+            <th className="w-6 px-0.5 py-2 text-center font-semibold xl:w-8 xl:px-1">L</th>
+            <th className="w-7 px-0.5 py-2 text-center font-semibold xl:w-9 xl:px-1">GD</th>
+            <th className="w-7 px-0.5 py-2 text-center font-semibold xl:w-9 xl:px-1">Pts</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#DCD5FF] bg-white">
@@ -1047,14 +1047,14 @@ function StandingsTable({
 
             return (
               <tr key={standing.teamId}>
-                <td className="px-2 py-2 font-bold text-[#12163F]">
+                <td className="px-1 py-2 font-bold text-[#12163F] xl:px-2">
                   {standing.position}
                 </td>
-                <td className="min-w-0 px-2 py-2">
+                <td className="min-w-0 px-1 py-2 xl:px-2">
                   <button
                     type="button"
                     onClick={() => onTeamSelect(standing.teamId)}
-                    className="flex w-full min-w-0 items-center gap-2 text-left transition hover:text-[#03718a] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20"
+                    className="flex w-full min-w-0 items-center gap-1 text-left transition hover:text-[#03718a] focus:outline-none focus:ring-2 focus:ring-[#3CC8A5]/20 xl:gap-2"
                   >
                     <TeamBadge team={team} small />
                     <span className="min-w-0 flex-1 font-semibold leading-tight">
@@ -1067,14 +1067,14 @@ function StandingsTable({
                     </span>
                   </button>
                 </td>
-                <td className="px-1 py-2 text-center">{standing.played}</td>
-                <td className="px-1 py-2 text-center">{standing.won}</td>
-                <td className="px-1 py-2 text-center">{standing.drawn}</td>
-                <td className="px-1 py-2 text-center">{standing.lost}</td>
-                <td className="px-1 py-2 text-center">
+                <td className="px-0.5 py-2 text-center xl:px-1">{standing.played}</td>
+                <td className="px-0.5 py-2 text-center xl:px-1">{standing.won}</td>
+                <td className="px-0.5 py-2 text-center xl:px-1">{standing.drawn}</td>
+                <td className="px-0.5 py-2 text-center xl:px-1">{standing.lost}</td>
+                <td className="px-0.5 py-2 text-center xl:px-1">
                   {standing.goalDifference}
                 </td>
-                <td className="px-1 py-2 text-center font-bold">
+                <td className="px-0.5 py-2 text-center font-bold xl:px-1">
                   {standing.points}
                 </td>
               </tr>
@@ -1655,7 +1655,12 @@ function LeaderboardCard({
               </p>
               <div className="mt-1 flex min-w-0 items-center gap-2 text-sm font-medium text-[#555B7A]">
                 <TeamBadge team={topTeam} small />
-                <span className="leading-tight">{topTeam?.name ?? 'Club TBC'}</span>
+                <span className="min-w-0 leading-tight">
+                  <span className="hidden xl:inline">{topTeam?.name ?? 'Club TBC'}</span>
+                  <span className="xl:hidden">
+                    {topTeam?.teamCode ?? topTeam?.shortName ?? 'TBC'}
+                  </span>
+                </span>
               </div>
             </div>
             <div className="col-span-2 rounded-lg bg-white px-3 py-2 text-center shadow-sm">

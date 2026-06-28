@@ -15,6 +15,16 @@ export type ActivityLogRow = {
   created_at: string
 }
 
+export type SystemJobRunStatus = 'success' | 'failed' | 'skipped'
+
+export type SystemJobRunRow = {
+  id: string
+  job_name: string
+  status: SystemJobRunStatus
+  details: Record<string, unknown> | null
+  ran_at: string
+}
+
 export type AdminPredictionRow = {
   id: string; fixture_id: string; match_week: number
   predicted_home_score: number; predicted_away_score: number
@@ -51,6 +61,34 @@ export async function fetchAdminActivityLogs(
   const { data, error } = await query
   if (error) throw error
   return (data ?? []) as ActivityLogRow[]
+}
+
+export async function fetchSystemJobRuns(limit = 50) {
+  const safeLimit = Math.min(Math.max(limit, 1), 50)
+  const { data, error } = await supabase
+    .from('system_job_runs')
+    .select('id, job_name, status, details, ran_at')
+    .order('ran_at', { ascending: false })
+    .limit(safeLimit)
+
+  if (error) throw error
+  return (data ?? []) as SystemJobRunRow[]
+}
+
+export function isSystemJobRunsMigrationMissing(error: unknown) {
+  if (!error || typeof error !== 'object') return false
+
+  const candidate = error as { code?: unknown; message?: unknown }
+  const code = typeof candidate.code === 'string' ? candidate.code : ''
+  const message =
+    typeof candidate.message === 'string' ? candidate.message.toLowerCase() : ''
+
+  return (
+    code === 'PGRST205' ||
+    code === '42P01' ||
+    (message.includes('system_job_runs') &&
+      (message.includes('schema cache') || message.includes('does not exist')))
+  )
 }
 
 export async function fetchAdminUserDetails(userId: string) {

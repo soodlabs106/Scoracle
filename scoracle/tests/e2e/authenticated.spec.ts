@@ -1,13 +1,21 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 const password = 'Scoracle!123'
 
-async function login(page, email: string) {
+async function login(page: Page, email: string) {
   await page.goto('/')
   await page.getByRole('button', { name: 'Log in' }).click()
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
+}
+
+async function expectNoPageOverflow(page: Page) {
+  const dimensions = await page.evaluate(() => ({
+    viewport: window.innerWidth,
+    document: document.documentElement.scrollWidth,
+  }))
+  expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport)
 }
 
 test('normal user can open profile and is denied admin access', async ({ page }) => {
@@ -36,4 +44,36 @@ test('database admin can open the protected admin page', async ({ page }) => {
   await page.goto('/admin-soodlabs')
   await expect(page.getByRole('heading', { name: 'Admin', exact: true })).toBeVisible()
   await expect(page.getByText('E2EUser', { exact: true })).toBeVisible()
+
+  await page.getByRole('tab', { name: 'System Maintenance' }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Supabase Maintenance Logs' }),
+  ).toBeVisible()
+  await expect(page.getByText('github-daily-maintenance').first()).toBeVisible()
+})
+
+test('signed-in pages do not overflow mobile or tablet viewports', async ({ page }) => {
+  await login(page, 'e2e.user@scoracle.local')
+  await expect(page.getByText('E2EUser', { exact: true })).toBeVisible()
+
+  for (const width of [360, 390, 414, 430, 768, 1024]) {
+    await page.setViewportSize({ width, height: 1024 })
+
+    for (const route of ['/profile', '/leaderboard']) {
+      await page.goto(route)
+      await expect(page.locator('main')).toBeVisible()
+      await expectNoPageOverflow(page)
+    }
+  }
+})
+
+test('mobile header uses avatar-only profile access', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 })
+  await login(page, 'e2e.user@scoracle.local')
+
+  const profileLink = page.getByTitle('Open profile')
+  await expect(profileLink).toBeVisible()
+  await expect(profileLink.getByText('E2EUser', { exact: true })).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Sign Out' })).toBeVisible()
+  await expectNoPageOverflow(page)
 })

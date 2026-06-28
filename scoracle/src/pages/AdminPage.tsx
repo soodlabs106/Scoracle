@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { Activity, HelpCircle, RefreshCw, Users } from 'lucide-react'
+import { Activity, Database, HelpCircle, RefreshCw, Users } from 'lucide-react'
 import { Link } from 'react-router'
 import { useAuth } from '../context/useAuth'
 import type { AdminProfileRow } from '../types/auth'
@@ -14,12 +14,16 @@ import {
   fetchAdminActivityLogs,
   fetchAdminUserDetails,
   fetchAdminUsers,
+  fetchSystemJobRuns,
+  isSystemJobRunsMigrationMissing,
   updateAdminUserStatus,
   type ActivityEventType,
   type ActivityLogRow,
   type AdminFixtureRow,
   type AdminPredictionRow,
   type AdminTeamRow,
+  type SystemJobRunRow,
+  type SystemJobRunStatus,
 } from '../features/admin/adminRepository'
 
 const LOG_PAGE_SIZE = 50
@@ -46,7 +50,9 @@ const ACTIVITY_FILTERS: Array<{
 export function AdminPage() {
   const { user, session, isAdmin, isLoading } = useAuth()
   const { openHelp } = useHelp()
-  const [activeTab, setActiveTab] = useState<'users' | 'activity'>('users')
+  const [activeTab, setActiveTab] = useState<
+    'users' | 'activity' | 'maintenance'
+  >('users')
   const [users, setUsers] = useState<AdminProfileRow[]>([])
   const [hasMoreUsers, setHasMoreUsers] = useState(false)
   const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([])
@@ -56,6 +62,11 @@ export function AdminPage() {
   const [activityUserFilter, setActivityUserFilter] = useState('all')
   const [hasMoreActivity, setHasMoreActivity] = useState(false)
   const [isActivityFetching, setIsActivityFetching] = useState(false)
+  const [maintenanceRuns, setMaintenanceRuns] = useState<SystemJobRunRow[]>([])
+  const [isMaintenanceFetching, setIsMaintenanceFetching] = useState(false)
+  const [maintenanceError, setMaintenanceError] = useState<string | null>(null)
+  const [maintenanceNeedsMigration, setMaintenanceNeedsMigration] =
+    useState(false)
   const [selectedProfile, setSelectedProfile] =
     useState<AdminProfileRow | null>(null)
   const [selectedPredictions, setSelectedPredictions] = useState<
@@ -132,6 +143,30 @@ export function AdminPage() {
     setIsProfileFetching(false)
   }, [])
 
+  const fetchMaintenanceRuns = useCallback(async () => {
+    setIsMaintenanceFetching(true)
+    setMaintenanceError(null)
+    setMaintenanceNeedsMigration(false)
+
+    try {
+      setMaintenanceRuns(await fetchSystemJobRuns(50))
+    } catch (error) {
+      if (isSystemJobRunsMigrationMissing(error)) {
+        setMaintenanceRuns([])
+        setMaintenanceNeedsMigration(true)
+        return
+      }
+
+      setMaintenanceError(
+        error instanceof Error
+          ? error.message
+          : 'Could not load system maintenance logs.',
+      )
+    } finally {
+      setIsMaintenanceFetching(false)
+    }
+  }, [])
+
   const selectedPredictionStats = useMemo(() => {
     return selectedPredictions.reduce(
       (stats, prediction) => ({
@@ -167,6 +202,18 @@ export function AdminPage() {
 
     return () => window.clearTimeout(timeoutId)
   }, [activeTab, fetchActivityLogs, isAdmin])
+
+  useEffect(() => {
+    if (!isAdmin || activeTab !== 'maintenance') {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void fetchMaintenanceRuns()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [activeTab, fetchMaintenanceRuns, isAdmin])
 
   async function toggleDisabled(target: AdminProfileRow) {
     if (target.id === user?.id) {
@@ -268,7 +315,7 @@ export function AdminPage() {
         ) : null}
 
         <div
-          className="mt-5 flex w-full max-w-sm rounded-lg border border-[#DCD5FF] bg-[#F7F5FF] p-1"
+          className="mt-5 flex w-full max-w-xl rounded-lg border border-[#DCD5FF] bg-[#F7F5FF] p-1"
           role="tablist"
           aria-label="Admin sections"
         >
@@ -299,6 +346,21 @@ export function AdminPage() {
           >
             <Activity size={16} aria-hidden="true" />
             Activity log
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'maintenance'}
+            onClick={() => setActiveTab('maintenance')}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-bold transition ${
+              activeTab === 'maintenance'
+                ? 'bg-white text-[#5B3FFF] shadow-sm'
+                : 'text-[#555B7A] hover:text-[#12163F]'
+            }`}
+          >
+            <Database size={16} aria-hidden="true" />
+            <span className="hidden sm:inline">System Maintenance</span>
+            <span className="sm:hidden">Maintenance</span>
           </button>
         </div>
 
@@ -402,7 +464,7 @@ export function AdminPage() {
               isLoading={isProfileFetching}
             />
           </div>
-        ) : (
+        ) : activeTab === 'activity' ? (
           <ActivityLogPanel
             logs={activityLogs}
             users={users}
@@ -415,10 +477,189 @@ export function AdminPage() {
             onRefresh={() => void fetchActivityLogs(0)}
             onLoadMore={() => void fetchActivityLogs(activityLogs.length)}
           />
+        ) : (
+          <SystemMaintenancePanel
+            runs={maintenanceRuns}
+            isLoading={isMaintenanceFetching}
+            error={maintenanceError}
+            needsMigration={maintenanceNeedsMigration}
+            onRefresh={() => void fetchMaintenanceRuns()}
+          />
         )}
       </section>
     </main>
   )
+}
+
+function SystemMaintenancePanel({
+  runs,
+  isLoading,
+  error,
+  needsMigration,
+  onRefresh,
+}: {
+  runs: SystemJobRunRow[]
+  isLoading: boolean
+  error: string | null
+  needsMigration: boolean
+  onRefresh: () => void
+}) {
+  return (
+    <section className="mt-5 overflow-hidden rounded-lg border border-[#DCD5FF] bg-white">
+      <div className="flex flex-col gap-3 border-b border-[#DCD5FF] bg-gradient-to-r from-[#F7F5FF] to-[#E9FFFC] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-xl font-black text-[#12163F]">
+            Supabase Maintenance Logs
+          </h2>
+          <p className="mt-1 text-sm font-medium text-[#555B7A]">
+            Latest 50 lightweight maintenance runs. Details are sanitized before storage.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={isLoading}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#5B3FFF] bg-white px-3 text-sm font-bold text-[#5B3FFF] transition hover:bg-[#F1ECFF] disabled:opacity-50"
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
+            aria-hidden="true"
+          />
+          Refresh
+        </button>
+      </div>
+
+      {error ? (
+        <p className="m-4 rounded-lg border border-[#F45B5B] bg-[#F45B5B]/10 p-3 text-sm font-semibold text-[#8a2626]">
+          {error}
+        </p>
+      ) : null}
+
+      {needsMigration ? (
+        <div className="m-4 rounded-lg border border-[#F59E0B]/60 bg-[#FFF4CC] p-4">
+          <p className="font-bold text-[#12163F]">
+            Maintenance logging is awaiting its database migration.
+          </p>
+          <p className="mt-1 text-sm font-medium text-[#555B7A]">
+            Apply the pending Supabase migrations, then refresh this tab. No application data needs to be changed manually.
+          </p>
+        </div>
+      ) : null}
+
+      {isLoading && runs.length === 0 ? (
+        <p className="p-6 text-center text-sm font-semibold text-[#555B7A]">
+          Loading maintenance logs...
+        </p>
+      ) : null}
+
+      {!isLoading && !error && !needsMigration && runs.length === 0 ? (
+        <div className="p-6 text-center">
+          <p className="font-bold text-[#12163F]">
+            No maintenance runs have been logged yet.
+          </p>
+          <p className="mt-1 text-sm font-medium text-[#555B7A]">
+            Run the GitHub Action manually to create the first entry.
+          </p>
+        </div>
+      ) : null}
+
+      {runs.length > 0 ? (
+        <div className="grid gap-3 p-4">
+          {runs.map((run) => (
+            <MaintenanceRunCard key={run.id} run={run} />
+          ))}
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
+function MaintenanceRunCard({ run }: { run: SystemJobRunRow }) {
+  const details = run.details ?? {}
+  const lightweightCheck = asRecord(details.lightweight_check)
+  const error = asRecord(details.error)
+
+  return (
+    <article className="rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-bold text-[#12163F]">{run.job_name}</h3>
+            <MaintenanceStatusBadge status={run.status} />
+          </div>
+          <p className="mt-1 text-sm font-medium text-[#555B7A]">
+            {new Date(run.ran_at).toLocaleString()}
+          </p>
+        </div>
+        <div className="grid shrink-0 grid-cols-2 gap-x-5 gap-y-1 text-xs sm:text-right">
+          <MetadataValue label="Source" value={stringValue(details.source)} />
+          <MetadataValue label="Trigger" value={stringValue(details.trigger)} />
+          <MetadataValue label="Run ID" value={stringValue(details.run_id)} />
+          <MetadataValue
+            label="Attempt"
+            value={stringValue(details.run_attempt)}
+          />
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-lg border border-[#DCD5FF] bg-[#F7F5FF] px-3 py-2 text-sm font-semibold text-[#12163F]">
+        {stringValue(lightweightCheck?.summary) ??
+          stringValue(error?.message) ??
+          'No check summary recorded.'}
+      </div>
+
+      {error ? (
+        <p className="mt-2 text-sm font-semibold text-[#8a2626]">
+          {stringValue(error.step) ?? 'Maintenance'}: {stringValue(error.message) ?? 'Run failed'}
+          {stringValue(error.http_status)
+            ? ` (HTTP ${stringValue(error.http_status)})`
+            : ''}
+        </p>
+      ) : null}
+
+    </article>
+  )
+}
+
+function MaintenanceStatusBadge({ status }: { status: SystemJobRunStatus }) {
+  const classes: Record<SystemJobRunStatus, string> = {
+    success: 'bg-[#E4FAF3] text-[#146b59]',
+    failed: 'bg-[#FDE7E7] text-[#8a2626]',
+    skipped: 'bg-[#FFF4CC] text-[#7a5c00]',
+  }
+
+  return (
+    <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${classes[status]}`}>
+      {status}
+    </span>
+  )
+}
+
+function MetadataValue({
+  label,
+  value,
+}: {
+  label: string
+  value: string | null
+}) {
+  return (
+    <span>
+      <span className="font-bold text-[#555B7A]">{label}: </span>
+      <span className="font-semibold text-[#12163F]">{value ?? '-'}</span>
+    </span>
+  )
+}
+
+function asRecord(value: unknown) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function stringValue(value: unknown) {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return String(value)
+  return null
 }
 
 function ActivityLogPanel({

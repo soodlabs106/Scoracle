@@ -512,6 +512,30 @@ export type Database = {
           },
         ]
       }
+      system_job_runs: {
+        Row: {
+          details: Json | null
+          id: string
+          job_name: string
+          ran_at: string
+          status: string
+        }
+        Insert: {
+          details?: Json | null
+          id?: string
+          job_name: string
+          ran_at?: string
+          status: string
+        }
+        Update: {
+          details?: Json | null
+          id?: string
+          job_name?: string
+          ran_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       teams: {
         Row: {
           api_football_team_id: string | null

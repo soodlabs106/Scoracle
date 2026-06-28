@@ -1,0 +1,37 @@
+name: Scoracle Supabase Maintenance
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scoracle-supabase-maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintain:
+    name: Run lightweight Scoracle maintenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      WORKFLOW_NAME: Scoracle Supabase Maintenance
+      REPOSITORY: ${{ github.repository }}
+      COMMIT_SHA: ${{ github.sha }}
+      RUN_ID: ${{ github.run_id }}
+      RUN_ATTEMPT: ${{ github.run_attempt }}
+      TRIGGER: ${{ github.event_name }}
+    steps:
+      - name: Check out maintenance script
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run maintenance and write audit log
+        shell: bash
+        run: bash scoracle/scripts/supabase-maintenance.sh

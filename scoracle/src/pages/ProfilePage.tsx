@@ -501,10 +501,10 @@ export function ProfilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F7F5FF] text-[#12163F]">
+    <main className="min-h-screen w-full overflow-x-clip bg-[#F7F5FF] text-[#12163F]">
       <Header onLogin={() => undefined} onSignup={() => undefined} />
 
-      <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+      <section className="mx-auto w-full max-w-6xl px-3 py-6 sm:px-6 lg:px-8">
         <div className="relative mb-5 pr-12">
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#F1ECFF] text-[#5B3FFF]">
@@ -527,10 +527,10 @@ export function ProfilePage() {
           </Link>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
+        <div className="grid w-full min-w-0 justify-items-center gap-4 lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)] lg:justify-items-stretch">
           <form
             onSubmit={handleSave}
-            className="self-start rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-[0_12px_32px_rgba(18,22,63,0.08)]"
+            className="w-full min-w-0 max-w-full self-start rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-[0_12px_32px_rgba(18,22,63,0.08)]"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -756,7 +756,7 @@ export function ProfilePage() {
             ) : null}
           </form>
 
-          <section className="rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-[0_12px_32px_rgba(18,22,63,0.08)]">
+          <section className="w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-[#DCD5FF] bg-white p-3 shadow-[0_12px_32px_rgba(18,22,63,0.08)] sm:p-4">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-xl font-semibold">Prediction History</h3>
@@ -804,14 +804,14 @@ export function ProfilePage() {
               </p>
             ) : null}
 
-            <div className="mt-4 space-y-5">
+            <div className="mt-4 min-w-0 space-y-5">
               {groupedHistory.map(([matchWeek, items]) => {
                 const isExpanded = expandedHistoryWeeks.has(matchWeek)
 
                 return (
                   <div
                     key={matchWeek}
-                    className="overflow-hidden rounded-lg border border-[#DCD5FF]"
+                    className="w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-[#DCD5FF]"
                   >
                     <button
                       type="button"
@@ -836,22 +836,22 @@ export function ProfilePage() {
                       <table className="w-full table-fixed text-left text-[11px] sm:text-xs">
                         <thead className="bg-gradient-to-r from-[#5B3FFF] to-[#FF2D9A] text-[10px] uppercase text-white sm:text-xs">
                           <tr>
-                            <th className="w-[21%] px-1.5 py-2 sm:px-2">
+                            <th className="w-[23%] px-1 py-2 sm:w-[21%] sm:px-2">
                               Fixture
                             </th>
-                            <th className="w-[17%] px-1.5 py-2 sm:px-2">
+                            <th className="w-[16%] px-1 py-2 sm:w-[17%] sm:px-2">
                               Pred
                             </th>
-                            <th className="w-[17%] px-1.5 py-2 sm:px-2">
+                            <th className="w-[18%] px-1 py-2 sm:w-[17%] sm:px-2">
                               Actual
                             </th>
-                            <th className="w-[18%] px-1.5 py-2 sm:px-2">
+                            <th className="w-[16%] px-1 py-2 sm:w-[18%] sm:px-2">
                               Call
                             </th>
-                            <th className="w-[10%] px-1.5 py-2 text-right sm:px-2">
+                            <th className="w-[9%] px-1 py-2 text-right sm:w-[10%] sm:px-2">
                               Pts
                             </th>
-                            <th className="w-[17%] px-1.5 py-2 text-right sm:px-2">
+                            <th className="w-[18%] px-1 py-2 text-right sm:w-[17%] sm:px-2">
                               <span className="hidden sm:inline">Action</span>
                               <span className="sm:hidden">Act</span>
                             </th>
@@ -873,10 +873,10 @@ export function ProfilePage() {
 
                             return (
                               <tr key={item.prediction.id}>
-                                <td className="px-1.5 py-3 font-semibold sm:px-2">
+                                <td className="px-1 py-3 font-semibold sm:px-2">
                                   <FixtureLabel item={item} />
                                 </td>
-                                <td className="px-1.5 py-3 sm:px-2">
+                                <td className="px-1 py-3 sm:px-2">
                                   <span
                                     className={`inline-flex whitespace-nowrap rounded-lg border px-1.5 py-1 text-sm font-bold sm:px-2 sm:text-base ${
                                       isPendingResult
@@ -888,10 +888,10 @@ export function ProfilePage() {
                                     {item.prediction.predicted_away_score}
                                   </span>
                                 </td>
-                                <td className="whitespace-nowrap px-1.5 py-3 text-sm font-bold sm:px-2 sm:text-base">
+                                <td className="whitespace-nowrap px-1 py-3 text-sm font-bold sm:px-2 sm:text-base">
                                   {formatActualResult(item.fixture)}
                                 </td>
-                                <td className="px-1.5 py-3 sm:px-2">
+                                <td className="px-1 py-3 sm:px-2">
                                   {isPendingResult ? (
                                     <span className="inline-flex whitespace-nowrap rounded-full border border-[#F59E0B] bg-white px-2 py-1 text-[10px] font-bold text-[#8a5a00] sm:text-xs">
                                       TBP
@@ -908,13 +908,13 @@ export function ProfilePage() {
                                     </span>
                                   )}
                                 </td>
-                                <td className="px-1.5 py-3 text-right font-bold sm:px-2">
+                                <td className="px-1 py-3 text-right font-bold sm:px-2">
                                   {item.prediction.points}
                                 </td>
-                                <td className="px-1.5 py-3 text-right sm:px-2">
+                                <td className="px-1 py-3 text-right sm:px-2">
                                   {isLocked ? (
                                     <span
-                                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#F45B5B]/10 text-[#8a2626]"
+                                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[#F45B5B]/10 text-[#8a2626] sm:h-8 sm:w-8"
                                       aria-label="Prediction locked"
                                       title="Predictions locked"
                                     >
@@ -930,7 +930,7 @@ export function ProfilePage() {
                                         deletingPredictionId ===
                                         item.prediction.id
                                       }
-                                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#F45B5B]/45 text-[#8a2626] transition hover:bg-[#F45B5B]/10 disabled:cursor-not-allowed disabled:border-[#DADADA] disabled:text-[#5f6664]"
+                                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[#F45B5B]/45 text-[#8a2626] transition hover:bg-[#F45B5B]/10 disabled:cursor-not-allowed disabled:border-[#DADADA] disabled:text-[#5f6664] sm:h-8 sm:w-8"
                                       aria-label="Delete prediction"
                                       title="Delete prediction"
                                     >
@@ -1019,10 +1019,10 @@ function FixtureLabel({ item }: { item: HistoryItem }) {
 
   return (
     <span
-      className="inline-flex flex-col items-center gap-0.5 whitespace-nowrap lg:inline-grid lg:grid-cols-[20px_32px_16px_20px_32px] lg:gap-1"
+      className="inline-flex flex-col items-center gap-0.5 whitespace-nowrap xl:inline-grid xl:grid-cols-[20px_32px_16px_20px_32px] xl:gap-1"
       title={`${item.homeTeam ?? 'Home'} vs ${item.awayTeam ?? 'Away'}`}
     >
-      <span className="inline-flex items-center gap-1 lg:contents">
+      <span className="inline-flex items-center gap-1 xl:contents">
         <ClubMiniCrest
           crestUrl={item.homeTeamCrestUrl}
           label={item.homeTeam ?? 'Home'}
@@ -1030,7 +1030,7 @@ function FixtureLabel({ item }: { item: HistoryItem }) {
         <span className="font-bold tracking-normal">{homeCode}</span>
       </span>
       <span className="text-center text-[#5f6664]">vs</span>
-      <span className="inline-flex items-center gap-1 lg:contents">
+      <span className="inline-flex items-center gap-1 xl:contents">
         <ClubMiniCrest
           crestUrl={item.awayTeamCrestUrl}
           label={item.awayTeam ?? 'Away'}
