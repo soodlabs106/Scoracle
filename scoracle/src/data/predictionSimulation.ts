@@ -174,6 +174,13 @@ export async function isPredictionSimulationEnabled() {
 }
 
 async function loadPredictionSimulation() {
+  if (
+    !import.meta.env.DEV ||
+    import.meta.env.VITE_ENABLE_LOCAL_SIMULATION !== 'true'
+  ) {
+    return null
+  }
+
   if (!simulationPromise) {
     simulationPromise = fetch(LOCAL_SIMULATION_PATH, { cache: 'no-store' })
       .then(async (response) => {

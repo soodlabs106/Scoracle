@@ -1,3 +1,5 @@
+import { HomeDataSchema } from '../../shared/contracts/homeData'
+
 export type Team = {
   id: string
   name: string
@@ -225,7 +227,7 @@ export const premierLeagueTeams: Team[] = [
 export const mockHomeData: HomeData = {
   teams: premierLeagueTeams.map((team) => ({
     ...team,
-    crestUrl: `/team-crests/${team.id}.png`,
+    crestUrl: `/team-crests/${team.id}.webp`,
   })),
   standings: premierLeagueTeams.map((team, index) => ({
     teamId: team.id,
@@ -321,17 +323,11 @@ export const mockHomeData: HomeData = {
 }
 
 export async function fetchHomeData(): Promise<HomeData> {
-  const params = new URLSearchParams({
-    season: '2026',
-    cacheBust: Date.now().toString(),
-  })
-  const response = await fetch(`/api/home-data?${params.toString()}`, {
-    cache: 'no-store',
-  })
+  const response = await fetch('/api/home-data')
 
   if (!response.ok) {
     throw new Error(`Home data request failed with ${response.status}`)
   }
 
-  return (await response.json()) as HomeData
+  return HomeDataSchema.parse(await response.json()) as HomeData
 }

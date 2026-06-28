@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
-import { Sparkles } from 'lucide-react'
+import { HelpCircle, Sparkles } from 'lucide-react'
 import { useAuth } from '../../context/useAuth'
+import { useHelp } from '../../features/help/useHelp'
 
 type HeaderProps = {
   onLogin: () => void
@@ -9,6 +10,7 @@ type HeaderProps = {
 
 export function Header({ onLogin, onSignup }: HeaderProps) {
   const { profile, isAdmin, isLoading, message, signOut } = useAuth()
+  const { openHelp } = useHelp()
 
   async function handleSignOut() {
     await signOut()
@@ -38,6 +40,15 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
         </Link>
 
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={openHelp}
+            aria-label="Open Scoracle help"
+            title="Help"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#DCD5FF] bg-white text-[#5B3FFF] shadow-sm transition-all duration-200 hover:-translate-y-px hover:bg-[#F1ECFF] focus:outline-none focus:ring-2 focus:ring-[#5B3FFF]/30"
+          >
+            <HelpCircle size={19} aria-hidden="true" />
+          </button>
           {message ? (
             <span className="rounded-full border border-[#DCD5FF] bg-[#FFF0F8] px-3 py-2 text-xs font-bold text-[#12163F]">
               {message}

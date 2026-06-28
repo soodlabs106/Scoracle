@@ -1,8 +1,50 @@
+import {
+  fetchJson,
+  jsonResponse,
+  logInfo,
+  publicError,
+  requestIdFrom,
+} from '../core/http.ts'
+import type { NetlifyFunctionEvent } from '../core/types.ts'
+
 const PULSE_BASE_URL = 'https://footballapi.pulselive.com/football'
 const DEFAULT_COMP_SEASON_ID = '841'
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6
+const KNOWN_TEAM_IDS = new Set([
+  '1', '2', '4', '5', '6', '7', '8', '9', '10', '11', '12', '15', '21',
+  '23', '29', '34', '41', '127', '130', '131',
+])
 
-export async function handler(event) {
+type NormalizedPlayer = {
+  id: string
+  name: string
+  position?: string
+}
+
+type SportsDbTeam = {
+  idTeam?: string
+  strSport?: string
+  strLeague?: string
+}
+
+type SportsDbPlayer = {
+  idPlayer?: string
+  strPlayer?: string
+  strName?: string
+  strStatus?: string
+  strPosition?: string
+}
+
+type SportsDbTeamsResponse = { teams?: SportsDbTeam[] }
+type SportsDbPlayersResponse = { player?: SportsDbPlayer[] }
+
+export async function handler(event: NetlifyFunctionEvent) {
+  const requestId = requestIdFrom(event)
+
+  if (event.httpMethod && event.httpMethod !== 'GET') {
+    return jsonResponse({ error: 'METHOD_NOT_ALLOWED', requestId }, 405, 'no-store', requestId)
+  }
+
   const params = event.queryStringParameters ?? {}
   const teamId = String(params.teamId ?? '').trim()
   const teamName = String(params.teamName ?? '').trim()
@@ -10,8 +52,8 @@ export async function handler(event) {
     process.env.PULSE_COMP_SEASON_ID ?? DEFAULT_COMP_SEASON_ID
   const sportsDbKey = process.env.THESPORTSDB_KEY ?? '123'
 
-  if (!teamId || teamId === 'all') {
-    return jsonResponse({ error: 'teamId is required' }, 400)
+  if (!KNOWN_TEAM_IDS.has(teamId)) {
+    return jsonResponse({ error: 'INVALID_TEAM', requestId }, 400, 'no-store', requestId)
   }
 
   const cacheKey = `team-details-v2:${compSeasonId}:${teamId}`
@@ -19,8 +61,8 @@ export async function handler(event) {
   try {
     const cached = await readSupabaseCache(cacheKey)
 
-    if (cached) {
-      return jsonResponse(cached)
+    if (cached?.isFresh) {
+      return jsonResponse(cached.payload, 200, 'public, max-age=300, s-maxage=21600', requestId)
     }
 
     const [playersResponse, topScorerResponse] = await Promise.allSettled([
@@ -63,26 +105,22 @@ export async function handler(event) {
 
     await writeSupabaseCache(cacheKey, payload)
 
-    return jsonResponse(payload)
+    logInfo('team_details_refreshed', { requestId, teamId, squad: squad.length })
+    return jsonResponse(payload, 200, 'public, max-age=300, s-maxage=21600', requestId)
   } catch (error) {
+    const stale = await readSupabaseCache(cacheKey).catch(() => null)
+
+    if (stale?.payload) {
+      return jsonResponse(stale.payload, 200, 'public, max-age=60, s-maxage=300', requestId)
+    }
+
     return jsonResponse(
-      {
-        error: 'Unable to load team details',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      publicError(error, requestId, 'TEAM_DETAILS_UNAVAILABLE'),
       502,
+      'no-store',
+      requestId,
     )
   }
-}
-
-async function fetchJson(url) {
-  const response = await fetch(url)
-
-  if (!response.ok) {
-    throw new Error(`${url} returned ${response.status}`)
-  }
-
-  return response.json()
 }
 
 function normalizePlayers(response, teamId) {
@@ -128,7 +166,15 @@ function normalizePlayers(response, teamId) {
     })
     .filter(Boolean)
 
-  return [...new Map(players.map((player) => [normalizeName(player.name), player])).values()]
+  const validPlayers = players.filter(
+    (player): player is NormalizedPlayer => player !== null,
+  )
+
+  return [
+    ...new Map<string, NormalizedPlayer>(
+      validPlayers.map((player) => [normalizeName(player.name), player]),
+    ).values(),
+  ]
     .sort((first, second) => first.name.localeCompare(second.name))
 }
 
@@ -153,7 +199,7 @@ function normalizeTopScorer(response) {
 }
 
 async function fetchSportsDbSquad(teamName, apiKey) {
-  const teamResponse = await fetchJson(
+  const teamResponse = await fetchJson<SportsDbTeamsResponse>(
     `https://www.thesportsdb.com/api/v1/json/${encodeURIComponent(
       apiKey,
     )}/searchteams.php?t=${encodeURIComponent(teamName)}`,
@@ -170,7 +216,7 @@ async function fetchSportsDbSquad(teamName, apiKey) {
     return []
   }
 
-  const response = await fetchJson(
+  const response = await fetchJson<SportsDbPlayersResponse>(
     `https://www.thesportsdb.com/api/v1/json/${encodeURIComponent(
       apiKey,
     )}/lookup_all_players.php?id=${encodeURIComponent(team.idTeam)}`,
@@ -239,10 +285,9 @@ async function readSupabaseCache(requestKey) {
     return null
   }
 
-  const now = encodeURIComponent(new Date().toISOString())
   const key = encodeURIComponent(requestKey)
   const response = await fetch(
-    `${config.url}/rest/v1/home_data_cache?select=payload&request_key=eq.${key}&expires_at=gt.${now}&limit=1`,
+    `${config.url}/rest/v1/home_data_cache?select=payload,expires_at&request_key=eq.${key}&limit=1`,
     {
       headers: supabaseHeaders(config),
     },
@@ -253,7 +298,16 @@ async function readSupabaseCache(requestKey) {
   }
 
   const rows = await response.json()
-  return rows?.[0]?.payload ?? null
+  const row = rows?.[0]
+
+  if (!row) {
+    return null
+  }
+
+  return {
+    payload: row.payload,
+    isFresh: new Date(row.expires_at).getTime() > Date.now(),
+  }
 }
 
 async function writeSupabaseCache(requestKey, payload) {
@@ -297,13 +351,3 @@ function supabaseHeaders(config) {
   }
 }
 
-function jsonResponse(payload, statusCode = 200) {
-  return {
-    statusCode,
-    headers: {
-      'content-type': 'application/json',
-      'cache-control': 'public, max-age=300',
-    },
-    body: JSON.stringify(payload),
-  }
-}

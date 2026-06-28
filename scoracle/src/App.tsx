@@ -20,6 +20,13 @@ import {
   type FilterDropdownOption,
 } from './components/ui/FilterDropdown'
 import { useAuth } from './context/useAuth'
+import { useHomeDataQuery } from './features/home/useHomeDataQuery'
+import {
+  listPredictionsForMatchWeek,
+  removePrediction,
+  savePredictions as persistPredictions,
+  type PredictionUpsert,
+} from './features/predictions/predictionRepository'
 import {
   fetchHomeData,
   mockHomeData,
@@ -30,10 +37,8 @@ import {
 } from './data/homeData'
 import { fetchTeamDetails, type TeamDetails } from './data/teamDetails'
 import {
-  applyPredictionSimulationToHomeData,
   fetchSimulatedPredictionsForFixtures,
 } from './data/predictionSimulation'
-import { supabase } from './lib/supabaseClient'
 import type { PredictionDraft, PredictionRow } from './types/predictions'
 import {
   getPredictionCloseness,
@@ -71,9 +76,17 @@ type TeamResult = {
 
 function App() {
   const { profile, user } = useAuth()
-  const [homeData, setHomeData] = useState<HomeData>(mockHomeData)
-  const [isLoading, setIsLoading] = useState(true)
-  const [dataNotice, setDataNotice] = useState('Loading live home data')
+  const homeDataQuery = useHomeDataQuery()
+  const [homeDataOverride, setHomeDataOverride] = useState<HomeData | null>(null)
+  const homeData = homeDataOverride ?? homeDataQuery.data ?? mockHomeData
+  const isLoading = homeDataQuery.isLoading && !homeDataQuery.data
+  const dataNotice = homeDataQuery.isError
+    ? 'Using local fallback data until the backend is running'
+    : homeData.sources.includes('Local prediction simulation')
+      ? 'Local prediction simulation loaded'
+      : isLoading
+        ? 'Loading live home data'
+        : 'Live provider data loaded'
   const [selectedClubId, setSelectedClubId] = useState('all')
   const [selectedMatchweek, setSelectedMatchweek] = useState('all')
   const [selectedMonth, setSelectedMonth] = useState('all')
@@ -226,48 +239,6 @@ function App() {
   )
 
   useEffect(() => {
-    let isMounted = true
-
-    fetchHomeData()
-      .then((data) => applyPredictionSimulationToHomeData(data))
-      .then((data) => {
-        if (!isMounted) {
-          return
-        }
-
-        setHomeData(data)
-        setDataNotice(
-          data.sources.includes('Local prediction simulation')
-            ? 'Local prediction simulation loaded'
-            : 'Live provider data loaded',
-        )
-      })
-      .catch(async () => {
-        if (!isMounted) {
-          return
-        }
-
-        const simulatedMockHomeData =
-          await applyPredictionSimulationToHomeData(mockHomeData)
-        setHomeData(simulatedMockHomeData)
-        setDataNotice(
-          simulatedMockHomeData.sources.includes('Local prediction simulation')
-            ? 'Local prediction simulation loaded'
-            : 'Using local fallback data until the backend is running',
-        )
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoading(false)
-        }
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
-  useEffect(() => {
     if (!selectedTeamModalId || teamDetailsById.has(selectedTeamModalId)) {
       return
     }
@@ -284,7 +255,6 @@ function App() {
         setTeamDetailsError(null)
         return fetchTeamDetails(
           selectedTeamModalId,
-          teamsById.get(selectedTeamModalId)?.name,
         )
       })
       .then((details) => {
@@ -366,25 +336,19 @@ function App() {
           return
         }
 
-        await supabase.rpc('score_my_predictions_for_completed_fixtures')
-
-        const { data, error } = await supabase
-          .from('predictions')
-          .select(
-            'id, user_id, fixture_id, match_week, predicted_home_score, predicted_away_score, closeness, points, is_locked, created_at, updated_at',
-          )
-          .eq('user_id', currentUser.id)
-          .eq('match_week', Number(activePredictionMatchweek))
-
-        if (error) {
-          throw error
+        if (!isMounted) {
+          return
         }
+
+        const predictionRows = await listPredictionsForMatchWeek(
+          currentUser.id,
+          Number(activePredictionMatchweek),
+        )
 
         if (!isMounted) {
           return
         }
 
-        const predictionRows = (data ?? []) as PredictionRow[]
         const nextPredictions = new Map(
           predictionRows.map((prediction) => [
             prediction.fixture_id,
@@ -486,7 +450,7 @@ function App() {
 
       try {
         const freshHomeData = await fetchHomeData()
-        setHomeData(freshHomeData)
+        setHomeDataOverride(freshHomeData)
         fixturesForSave = freshHomeData.fixtures.filter(
           (fixture) => fixture.matchweek === predictionMatchweekNumber,
         )
@@ -511,7 +475,7 @@ function App() {
       return
     }
 
-    const rows = []
+    const rows: PredictionUpsert[] = []
 
     for (const fixture of changedFixtures) {
       if (!fixture.dbId) {
@@ -573,18 +537,7 @@ function App() {
     setPredictionMessage(null)
 
     try {
-      const { data, error } = await supabase
-        .from('predictions')
-        .upsert(rows, { onConflict: 'user_id,fixture_id' })
-        .select(
-          'id, user_id, fixture_id, match_week, predicted_home_score, predicted_away_score, closeness, points, is_locked, created_at, updated_at',
-        )
-
-      if (error) {
-        throw error
-      }
-
-      const savedPredictions = (data ?? []) as PredictionRow[]
+      const savedPredictions = await persistPredictions(rows)
       setPredictionsByFixtureId((current) => {
         const next = new Map(current)
 
@@ -627,14 +580,7 @@ function App() {
     setPredictionMessage(null)
 
     try {
-      const { error } = await supabase
-        .from('predictions')
-        .delete()
-        .eq('id', prediction.id)
-
-      if (error) {
-        throw error
-      }
+      await removePrediction(prediction.id)
 
       const draftKey = getPredictionDraftKey(fixture)
       setPredictionsByFixtureId((current) => {
@@ -669,13 +615,14 @@ function App() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F7F5FF] text-[#12163F]">
+    <div className="min-h-screen bg-[#F7F5FF] text-[#12163F]">
       <Header
         onLogin={() => setModalKind('login')}
         onSignup={() => setModalKind('signup')}
       />
 
-      <section className="mx-auto grid max-w-[1600px] gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(330px,0.95fr)_minmax(460px,1.55fr)_minmax(230px,0.65fr)] lg:px-8">
+      <main>
+        <section className="mx-auto grid max-w-[1600px] gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(330px,0.95fr)_minmax(460px,1.55fr)_minmax(230px,0.65fr)] lg:px-8">
         <section className="rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-[0_12px_32px_rgba(18,22,63,0.08)] lg:hidden">
           <button
             type="button"
@@ -935,7 +882,8 @@ function App() {
             teamsById={teamsById}
           />
         </aside>
-      </section>
+        </section>
+      </main>
 
       {modalKind === 'login' ? (
         <LoginModal
@@ -968,7 +916,7 @@ function App() {
           onClose={() => setSelectedTeamModalId(null)}
         />
       ) : null}
-    </main>
+    </div>
   )
 }
 
@@ -1757,6 +1705,10 @@ function PlayerPhoto({ leader }: { leader: Leader }) {
       <img
         src={leader.photoUrl}
         alt={leader.playerName}
+        width={64}
+        height={64}
+        loading="lazy"
+        decoding="async"
         className="h-16 w-16 rounded-lg object-cover"
       />
     )
@@ -1783,6 +1735,10 @@ function TeamBadge({
       <img
         src={team.crestUrl}
         alt=""
+        width={small ? 24 : 32}
+        height={small ? 24 : 32}
+        loading="lazy"
+        decoding="async"
         className={`${size} shrink-0 rounded-full object-contain`}
       />
     )

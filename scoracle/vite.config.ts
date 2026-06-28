@@ -28,6 +28,39 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(moduleId) {
+            if (!moduleId.includes('node_modules')) {
+              return undefined
+            }
+
+            if (moduleId.includes('@supabase')) {
+              return 'supabase'
+            }
+
+            if (moduleId.includes('@tanstack')) {
+              return 'query'
+            }
+
+            if (moduleId.includes('lucide-react')) {
+              return 'icons'
+            }
+
+            if (
+              moduleId.includes('/react/') ||
+              moduleId.includes('/react-dom/') ||
+              moduleId.includes('/react-router/')
+            ) {
+              return 'react'
+            }
+
+            return 'vendor'
+          },
+        },
+      },
+    },
     plugins: [
       react(),
       tailwindcss(),
@@ -37,7 +70,7 @@ export default defineConfig(({ mode }) => {
           server.middlewares.use('/api/home-data', async (request, response) => {
             try {
               const functionPath = pathToFileURL(
-                resolve(process.cwd(), 'netlify/functions/home-data.mjs'),
+                resolve(process.cwd(), 'netlify/functions/home-data.ts'),
               ).href
               const { handler } = (await import(
                 functionPath
@@ -75,7 +108,7 @@ export default defineConfig(({ mode }) => {
                 const functionPath = pathToFileURL(
                   resolve(
                     process.cwd(),
-                    'netlify/functions/cache-oauth-avatar.mjs',
+                    'netlify/functions/cache-oauth-avatar.ts',
                   ),
                 ).href
                 const { handler } = (await import(
@@ -115,7 +148,7 @@ export default defineConfig(({ mode }) => {
             async (request, response) => {
               try {
                 const functionPath = pathToFileURL(
-                  resolve(process.cwd(), 'netlify/functions/team-details.mjs'),
+                  resolve(process.cwd(), 'netlify/functions/team-details.ts'),
                 ).href
                 const { handler } = (await import(
                   functionPath
@@ -146,6 +179,67 @@ export default defineConfig(({ mode }) => {
               }
             },
           )
+
+          server.middlewares.use(
+            '/api/admin/user-status',
+            async (request, response) => {
+              try {
+                const functionPath = pathToFileURL(
+                  resolve(
+                    process.cwd(),
+                    'netlify/functions/admin-user-status.ts',
+                  ),
+                ).href
+                const { handler } = (await import(
+                  functionPath
+                )) as NetlifyFunctionModule
+                const result = await handler({
+                  httpMethod: request.method,
+                  headers: request.headers as Record<string, string>,
+                  body: await readRequestBody(request),
+                  queryStringParameters: {},
+                })
+
+                for (const [key, value] of Object.entries(result.headers ?? {})) {
+                  response.setHeader(key, value)
+                }
+
+                response.statusCode = result.statusCode ?? 200
+                response.end(result.body)
+              } catch {
+                response.statusCode = 502
+                response.setHeader('content-type', 'application/json')
+                response.end(JSON.stringify({ error: 'ADMIN_STATUS_UNAVAILABLE' }))
+              }
+            },
+          )
+
+          server.middlewares.use('/api/health', async (request, response) => {
+            try {
+              const functionPath = pathToFileURL(
+                resolve(process.cwd(), 'netlify/functions/health.ts'),
+              ).href
+              const { handler } = (await import(
+                functionPath
+              )) as NetlifyFunctionModule
+              const result = await handler({
+                httpMethod: request.method,
+                headers: request.headers as Record<string, string>,
+                queryStringParameters: {},
+              })
+
+              for (const [key, value] of Object.entries(result.headers ?? {})) {
+                response.setHeader(key, value)
+              }
+
+              response.statusCode = result.statusCode ?? 200
+              response.end(result.body)
+            } catch {
+              response.statusCode = 503
+              response.setHeader('content-type', 'application/json')
+              response.end(JSON.stringify({ status: 'unhealthy' }))
+            }
+          })
         },
       },
     ],

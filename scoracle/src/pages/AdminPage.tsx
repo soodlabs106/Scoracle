@@ -2,68 +2,28 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react'
-import { Activity, RefreshCw, Users } from 'lucide-react'
+import { Activity, HelpCircle, RefreshCw, Users } from 'lucide-react'
 import { Link } from 'react-router'
-import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/useAuth'
 import type { AdminProfileRow } from '../types/auth'
-
-type AdminPredictionRow = {
-  id: string
-  fixture_id: string
-  match_week: number
-  predicted_home_score: number
-  predicted_away_score: number
-  closeness: string | null
-  points: number
-  is_locked: boolean
-  created_at: string
-}
-
-type AdminFixtureRow = {
-  id: string
-  matchweek: number
-  kickoff_utc: string
-  status: string
-  home_score: number | null
-  away_score: number | null
-  home_team_id: string
-  away_team_id: string
-}
-
-type AdminTeamRow = {
-  id: string
-  canonical_name: string
-  crest_url: string | null
-}
-
-type ActivityLogRow = {
-  id: number
-  user_id: string | null
-  target_user_id: string | null
-  event_type: ActivityEventType
-  metadata: Record<string, unknown>
-  created_at: string
-}
-
-type ActivityEventType =
-  | 'ACCOUNT_CREATED'
-  | 'SIGNED_IN'
-  | 'SIGNED_OUT'
-  | 'SESSION_TIMEOUT'
-  | 'PREDICTION_CREATED'
-  | 'PREDICTION_UPDATED'
-  | 'PREDICTION_DELETED'
-  | 'PROFILE_UPDATED'
-  | 'ONBOARDING_COMPLETED'
-  | 'USER_DISABLED'
-  | 'USER_ENABLED'
+import { useHelp } from '../features/help/useHelp'
+import {
+  fetchAdminActivityLogs,
+  fetchAdminUserDetails,
+  fetchAdminUsers,
+  updateAdminUserStatus,
+  type ActivityEventType,
+  type ActivityLogRow,
+  type AdminFixtureRow,
+  type AdminPredictionRow,
+  type AdminTeamRow,
+} from '../features/admin/adminRepository'
 
 const LOG_PAGE_SIZE = 50
+const USER_PAGE_SIZE = 50
 
 const ACTIVITY_FILTERS: Array<{
   value: 'all' | ActivityEventType
@@ -84,9 +44,11 @@ const ACTIVITY_FILTERS: Array<{
 ]
 
 export function AdminPage() {
-  const { user, isAdmin, isLoading } = useAuth()
+  const { user, session, isAdmin, isLoading } = useAuth()
+  const { openHelp } = useHelp()
   const [activeTab, setActiveTab] = useState<'users' | 'activity'>('users')
   const [users, setUsers] = useState<AdminProfileRow[]>([])
+  const [hasMoreUsers, setHasMoreUsers] = useState(false)
   const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([])
   const [activityFilter, setActivityFilter] = useState<
     'all' | ActivityEventType
@@ -94,7 +56,6 @@ export function AdminPage() {
   const [activityUserFilter, setActivityUserFilter] = useState('all')
   const [hasMoreActivity, setHasMoreActivity] = useState(false)
   const [isActivityFetching, setIsActivityFetching] = useState(false)
-  const hasPrunedActivity = useRef(false)
   const [selectedProfile, setSelectedProfile] =
     useState<AdminProfileRow | null>(null)
   const [selectedPredictions, setSelectedPredictions] = useState<
@@ -111,21 +72,16 @@ export function AdminPage() {
   const [isProfileFetching, setIsProfileFetching] = useState(false)
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (offset = 0) => {
     setIsFetching(true)
     setMessage(null)
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select(
-        'id, username, first_name, last_name, role, is_disabled, favorite_club, avatar_url, onboarding_required, onboarding_completed_at, created_at',
-      )
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      setMessage(error.message)
-    } else {
-      setUsers((data ?? []) as AdminProfileRow[])
+    try {
+      const rows = await fetchAdminUsers(offset, USER_PAGE_SIZE)
+      setUsers((current) => (offset === 0 ? rows : [...current, ...rows]))
+      setHasMoreUsers(rows.length === USER_PAGE_SIZE)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not load users.')
     }
 
     setIsFetching(false)
@@ -136,34 +92,19 @@ export function AdminPage() {
       setIsActivityFetching(true)
       setMessage(null)
 
-      let query = supabase
-        .from('app_activity_logs')
-        .select(
-          'id, user_id, target_user_id, event_type, metadata, created_at',
+      try {
+        const rows = await fetchAdminActivityLogs(
+          offset,
+          LOG_PAGE_SIZE,
+          activityFilter,
+          activityUserFilter,
         )
-        .order('created_at', { ascending: false })
-        .range(offset, offset + LOG_PAGE_SIZE - 1)
-
-      if (activityFilter !== 'all') {
-        query = query.eq('event_type', activityFilter)
-      }
-
-      if (activityUserFilter !== 'all') {
-        query = query.or(
-          `user_id.eq.${activityUserFilter},target_user_id.eq.${activityUserFilter}`,
-        )
-      }
-
-      const { data, error } = await query
-
-      if (error) {
-        setMessage(error.message)
-      } else {
-        const rows = (data ?? []) as ActivityLogRow[]
         setActivityLogs((current) =>
           offset === 0 ? rows : [...current, ...rows],
         )
         setHasMoreActivity(rows.length === LOG_PAGE_SIZE)
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Could not load activity.')
       }
 
       setIsActivityFetching(false)
@@ -179,71 +120,13 @@ export function AdminPage() {
     setIsProfileFetching(true)
     setMessage(null)
 
-    const { data: predictions, error: predictionsError } = await supabase
-      .from('predictions')
-      .select(
-        'id, fixture_id, match_week, predicted_home_score, predicted_away_score, closeness, points, is_locked, created_at',
-      )
-      .eq('user_id', target.id)
-      .order('match_week', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(25)
-
-    if (predictionsError) {
-      setMessage(predictionsError.message)
-      setIsProfileFetching(false)
-      return
-    }
-
-    const predictionRows = (predictions ?? []) as AdminPredictionRow[]
-    setSelectedPredictions(predictionRows)
-
-    const fixtureIds = Array.from(
-      new Set(predictionRows.map((prediction) => prediction.fixture_id)),
-    )
-
-    if (fixtureIds.length === 0) {
-      setIsProfileFetching(false)
-      return
-    }
-
-    const { data: fixtures, error: fixturesError } = await supabase
-      .from('fixtures')
-      .select(
-        'id, matchweek, kickoff_utc, status, home_score, away_score, home_team_id, away_team_id',
-      )
-      .in('id', fixtureIds)
-
-    if (fixturesError) {
-      setMessage(fixturesError.message)
-      setIsProfileFetching(false)
-      return
-    }
-
-    const fixtureRows = (fixtures ?? []) as AdminFixtureRow[]
-    setSelectedFixtures(new Map(fixtureRows.map((fixture) => [fixture.id, fixture])))
-
-    const teamIds = Array.from(
-      new Set(
-        fixtureRows.flatMap((fixture) => [
-          fixture.home_team_id,
-          fixture.away_team_id,
-        ]),
-      ),
-    )
-
-    if (teamIds.length > 0) {
-      const { data: teams, error: teamsError } = await supabase
-        .from('teams')
-        .select('id, canonical_name, crest_url')
-        .in('id', teamIds)
-
-      if (teamsError) {
-        setMessage(teamsError.message)
-      } else {
-        const teamRows = (teams ?? []) as AdminTeamRow[]
-        setSelectedTeams(new Map(teamRows.map((team) => [team.id, team])))
-      }
+    try {
+      const details = await fetchAdminUserDetails(target.id)
+      setSelectedPredictions(details.predictions)
+      setSelectedFixtures(new Map(details.fixtures.map((row) => [row.id, row])))
+      setSelectedTeams(new Map(details.teams.map((row) => [row.id, row])))
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not load user details.')
     }
 
     setIsProfileFetching(false)
@@ -267,7 +150,7 @@ export function AdminPage() {
     }
 
     const timeoutId = window.setTimeout(() => {
-      void fetchUsers()
+      void fetchUsers(0)
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
@@ -276,11 +159,6 @@ export function AdminPage() {
   useEffect(() => {
     if (!isAdmin || activeTab !== 'activity') {
       return
-    }
-
-    if (!hasPrunedActivity.current) {
-      hasPrunedActivity.current = true
-      void supabase.rpc('prune_activity_logs', { retention_days: 90 })
     }
 
     const timeoutId = window.setTimeout(() => {
@@ -299,15 +177,12 @@ export function AdminPage() {
     setUpdatingUserId(target.id)
     setMessage(null)
 
-    const { data, error } = await supabase.rpc('admin_set_user_disabled', {
-      target_user_id: target.id,
-      disabled: !target.is_disabled,
-    })
-
-    if (error) {
-      setMessage(error.message)
-    } else {
-      const updated = Array.isArray(data) ? data[0] : null
+    try {
+      const updated = await updateAdminUserStatus(
+        session?.access_token ?? '',
+        target.id,
+        !target.is_disabled,
+      )
       setUsers((current) =>
         current.map((row) =>
           updated && row.id === updated.id
@@ -322,6 +197,10 @@ export function AdminPage() {
             : current,
         )
       }
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : 'Could not update user status.',
+      )
     }
 
     setUpdatingUserId(null)
@@ -363,12 +242,23 @@ export function AdminPage() {
               View user IDs, read-only profiles, and account status. Emails and passwords are not shown.
             </p>
           </div>
-          <Link
-            to="/"
-            className="rounded-lg border border-[#3CC8A5] px-4 py-2 text-center text-sm font-semibold text-[#3CC8A5] transition hover:bg-[#3CC8A5]/10"
-          >
-            Home
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openHelp}
+              aria-label="Open Scoracle help"
+              title="Help"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#DCD5FF] bg-white text-[#5B3FFF] transition hover:bg-[#F1ECFF] focus:outline-none focus:ring-2 focus:ring-[#5B3FFF]/30"
+            >
+              <HelpCircle size={18} aria-hidden="true" />
+            </button>
+            <Link
+              to="/"
+              className="rounded-lg border border-[#3CC8A5] px-4 py-2 text-center text-sm font-semibold text-[#3CC8A5] transition hover:bg-[#3CC8A5]/10"
+            >
+              Home
+            </Link>
+          </div>
         </div>
 
         {message ? (
@@ -489,6 +379,18 @@ export function AdminPage() {
                 </tbody>
                 </table>
               </div>
+              {hasMoreUsers ? (
+                <div className="border-t border-[#DCD5FF] bg-[#F7F5FF] p-3 text-right">
+                  <button
+                    type="button"
+                    onClick={() => void fetchUsers(users.length)}
+                    disabled={isFetching}
+                    className="rounded-lg bg-[#5B3FFF] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    {isFetching ? 'Loading...' : 'Load more users'}
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             <AdminProfilePanel

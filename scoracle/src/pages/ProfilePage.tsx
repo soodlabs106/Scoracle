@@ -16,20 +16,25 @@ import { Header } from '../components/layout/Header'
 import { useOnboarding } from '../components/onboarding/useOnboarding'
 import { FilterDropdown } from '../components/ui/FilterDropdown'
 import { useAuth } from '../context/useAuth'
-import { fetchHomeData, mockHomeData, type Team } from '../data/homeData'
+import { mockHomeData, type Team } from '../data/homeData'
+import { useHomeDataQuery } from '../features/home/useHomeDataQuery'
+import { removePrediction } from '../features/predictions/predictionRepository'
 import {
-  fetchMatchWeekLeaderboard,
+  fetchMyPredictionHistory,
+  removeProfileAvatar,
+  uploadProfileAvatar,
+} from '../features/profile/profileRepository'
+import {
   fetchOverallLeaderboard,
+  fetchRankTimeline,
 } from '../data/leaderboard'
 import { fetchSimulatedPredictionHistory } from '../data/predictionSimulation'
-import { supabase } from '../lib/supabaseClient'
 import type { PredictionRow } from '../types/predictions'
 import {
   getPredictionClosenessDisplay,
   type PredictionCloseness,
 } from '../utils/predictionScoring'
 
-const AVATAR_BUCKET = 'profile-avatars'
 const MAX_AVATAR_SOURCE_BYTES = 3 * 1024 * 1024
 const MAX_AVATAR_DIMENSION = 512
 const AVATAR_QUALITY = 0.82
@@ -64,15 +69,6 @@ type FixtureHistoryRow = {
   kickoffUtc: string
   homeScore: number | null
   awayScore: number | null
-  homeTeamId: string
-  awayTeamId: string
-}
-
-type TeamRow = {
-  id: string
-  canonical_name: string
-  team_code: string | null
-  crest_url: string | null
 }
 
 type HistoryItem = {
@@ -96,7 +92,8 @@ export function ProfilePage() {
     checkUsernameAvailability,
   } = useAuth()
   const { openTour } = useOnboarding()
-  const [clubs, setClubs] = useState<Team[]>(mockHomeData.teams)
+  const homeDataQuery = useHomeDataQuery()
+  const clubs = homeDataQuery.data?.teams ?? mockHomeData.teams
   const [username, setUsername] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -140,26 +137,6 @@ export function ProfilePage() {
     }
   }, [profile])
 
-  useEffect(() => {
-    let isMounted = true
-
-    fetchHomeData()
-      .then((data) => {
-        if (isMounted) {
-          setClubs(data.teams)
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setClubs(mockHomeData.teams)
-        }
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
   function applyHistory(nextHistory: HistoryItem[]) {
     setHistory(nextHistory)
 
@@ -173,7 +150,7 @@ export function ProfilePage() {
   }
 
   useEffect(() => {
-    if (!user) {
+    if (!user || homeDataQuery.isLoading) {
       return
     }
 
@@ -184,7 +161,7 @@ export function ProfilePage() {
       setIsHistoryLoading(true)
 
       try {
-        const homeData = await fetchHomeData().catch(() => mockHomeData)
+        const homeData = homeDataQuery.data ?? mockHomeData
         const simulatedHistory = await fetchSimulatedPredictionHistory(
           currentUser.id,
           homeData,
@@ -197,135 +174,37 @@ export function ProfilePage() {
           return
         }
 
-        await supabase.rpc('score_my_predictions_for_completed_fixtures')
-
-        const { data: predictionRows, error: predictionError } = await supabase
-          .from('predictions')
-          .select(
-            'id, user_id, fixture_id, match_week, predicted_home_score, predicted_away_score, closeness, points, is_locked, created_at, updated_at',
-          )
-          .eq('user_id', currentUser.id)
-          .order('match_week', { ascending: false })
-
-        if (predictionError) {
-          throw predictionError
-        }
-
-        const predictions = (predictionRows ?? []) as PredictionRow[]
-        const predictionWeeks = Array.from(
-          new Set(predictions.map((prediction) => prediction.match_week)),
-        )
-
-        if (predictionWeeks.length === 0) {
-          if (isMounted) {
-            applyHistory([])
-          }
-          return
-        }
-
-        const { data: fixtureRows, error: fixtureError } = await supabase
-          .from('fixtures')
-          .select(
-            'id, matchweek, kickoff_utc, home_score, away_score, home_team_id, away_team_id',
-          )
-          .in('matchweek', predictionWeeks)
-
-        if (fixtureError) {
-          throw fixtureError
-        }
-
-        const fixtures = (fixtureRows ?? []).map((fixture) => ({
-          id: fixture.id,
-          matchweek: fixture.matchweek,
-          kickoffUtc: fixture.kickoff_utc,
-          homeScore: fixture.home_score,
-          awayScore: fixture.away_score,
-          homeTeamId: fixture.home_team_id,
-          awayTeamId: fixture.away_team_id,
-        })) as FixtureHistoryRow[]
-        const fixturesById = new Map(fixtures.map((fixture) => [fixture.id, fixture]))
-        const lockByMatchweek = new Map<number, string>()
-        for (const fixture of fixtures) {
-          const currentLock = lockByMatchweek.get(fixture.matchweek)
-          if (
-            !currentLock ||
-            new Date(fixture.kickoffUtc).getTime() <
-              new Date(currentLock).getTime()
-          ) {
-            lockByMatchweek.set(fixture.matchweek, fixture.kickoffUtc)
-          }
-        }
-        const teamIds = Array.from(
-          new Set(
-            fixtures.flatMap((fixture) => [
-              fixture.homeTeamId,
-              fixture.awayTeamId,
-            ]),
-          ),
-        )
-
-        const { data: teamRows, error: teamError } = await supabase
-          .from('teams')
-          .select('id, canonical_name, team_code, crest_url')
-          .in('id', teamIds)
-
-        if (teamError) {
-          throw teamError
-        }
-
-        const teamsById = new Map(
-          ((teamRows ?? []) as TeamRow[]).map((team) => [
-            team.id,
-            team,
-          ]),
-        )
-        const rows = predictions
-          .map((prediction) => {
-            const fixture = fixturesById.get(prediction.fixture_id)
-
-            return {
-              prediction,
-              fixture,
-              homeTeam: fixture
-                ? teamsById.get(fixture.homeTeamId)?.canonical_name
-                : undefined,
-              awayTeam: fixture
-                ? teamsById.get(fixture.awayTeamId)?.canonical_name
-                : undefined,
-              homeTeamCode: fixture
-                ? teamsById.get(fixture.homeTeamId)?.team_code ??
-                  getTeamCodeFallback(
-                    teamsById.get(fixture.homeTeamId)?.canonical_name,
-                  )
-                : undefined,
-              awayTeamCode: fixture
-                ? teamsById.get(fixture.awayTeamId)?.team_code ??
-                  getTeamCodeFallback(
-                    teamsById.get(fixture.awayTeamId)?.canonical_name,
-                  )
-                : undefined,
-              homeTeamCrestUrl: fixture
-                ? teamsById.get(fixture.homeTeamId)?.crest_url ?? undefined
-                : undefined,
-              awayTeamCrestUrl: fixture
-                ? teamsById.get(fixture.awayTeamId)?.crest_url ?? undefined
-                : undefined,
-              matchweekLockAt: lockByMatchweek.get(prediction.match_week),
-            }
-          })
-          .sort((first, second) => {
-            const weekDelta =
-              second.prediction.match_week - first.prediction.match_week
-
-            if (weekDelta !== 0) {
-              return weekDelta
-            }
-
-            return (
-              new Date(first.fixture?.kickoffUtc ?? 0).getTime() -
-              new Date(second.fixture?.kickoffUtc ?? 0).getTime()
-            )
-          })
+        const rows = (await fetchMyPredictionHistory()).map((row) => ({
+          prediction: {
+            id: row.prediction_id,
+            user_id: currentUser.id,
+            fixture_id: row.fixture_id,
+            match_week: row.match_week,
+            predicted_home_score: row.predicted_home_score,
+            predicted_away_score: row.predicted_away_score,
+            closeness: row.closeness,
+            points: row.points,
+            is_locked: row.is_locked,
+            created_at: row.prediction_created_at,
+            updated_at: row.prediction_updated_at,
+          },
+          fixture: {
+            id: row.fixture_id,
+            matchweek: row.match_week,
+            kickoffUtc: row.kickoff_utc,
+            homeScore: row.home_score,
+            awayScore: row.away_score,
+          },
+          homeTeam: row.home_team_name,
+          awayTeam: row.away_team_name,
+          homeTeamCode:
+            row.home_team_code ?? getTeamCodeFallback(row.home_team_name),
+          awayTeamCode:
+            row.away_team_code ?? getTeamCodeFallback(row.away_team_name),
+          homeTeamCrestUrl: row.home_team_crest_url ?? undefined,
+          awayTeamCrestUrl: row.away_team_crest_url ?? undefined,
+          matchweekLockAt: row.matchweek_lock_at,
+        }))
 
         if (isMounted) {
           applyHistory(rows)
@@ -350,7 +229,7 @@ export function ProfilePage() {
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [homeDataQuery.data, homeDataQuery.isLoading, user])
 
   const historyMatchweeks = useMemo(
     () =>
@@ -402,15 +281,14 @@ export function ProfilePage() {
           currentUserId,
           currentUsername,
         )
-        const weeklyRankEntries = await Promise.all(
-          historyMatchweeks.map(async (matchweek) => {
-            const rows = await fetchMatchWeekLeaderboard(matchweek)
-            return [
-              matchweek,
-              findCurrentUserRank(rows, currentUserId, currentUsername),
-            ] as const
-          }),
-        )
+        const timeline = await fetchRankTimeline()
+        const weeklyRankEntries = historyMatchweeks.map((matchweek) => {
+          const row = timeline.find(
+            (entry) =>
+              entry.match_week === matchweek && entry.user_id === currentUserId,
+          )
+          return [matchweek, row?.current_rank ?? null] as const
+        })
 
         if (!isMounted) {
           return
@@ -482,21 +360,9 @@ export function ProfilePage() {
 
       if (selectedAvatarFile && user) {
         const preparedAvatar = await prepareAvatarUpload(selectedAvatarFile)
-        const path = `${user.id}/avatar-${Date.now()}.webp`
-        const { error: uploadError } = await supabase.storage
-          .from(AVATAR_BUCKET)
-          .upload(path, preparedAvatar, {
-            contentType: 'image/webp',
-            upsert: true,
-          })
-
-        if (uploadError) {
-          throw uploadError
-        }
-
-        const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path)
-        nextAvatarUrl = data.publicUrl
-        nextAvatarPath = path
+        const uploadedAvatar = await uploadProfileAvatar(user.id, preparedAvatar)
+        nextAvatarUrl = uploadedAvatar.publicUrl
+        nextAvatarPath = uploadedAvatar.path
       }
 
       if (trimmedUsername !== profile?.username) {
@@ -517,7 +383,7 @@ export function ProfilePage() {
         avatarPath: nextAvatarPath,
       })
       if (avatarPath && selectedAvatarFile && avatarPath !== nextAvatarPath) {
-        await supabase.storage.from(AVATAR_BUCKET).remove([avatarPath])
+        await removeProfileAvatar(avatarPath)
       }
       setAvatarUrl(nextAvatarUrl)
       setAvatarPath(nextAvatarPath)
@@ -611,14 +477,7 @@ export function ProfilePage() {
     setMessage(null)
 
     try {
-      const { error: deleteError } = await supabase
-        .from('predictions')
-        .delete()
-        .eq('id', deleteConfirmationItem.prediction.id)
-
-      if (deleteError) {
-        throw deleteError
-      }
+      await removePrediction(deleteConfirmationItem.prediction.id)
 
       setHistory((current) =>
         current.filter(
@@ -1220,6 +1079,10 @@ function ClubMiniCrest({
       <img
         src={crestUrl}
         alt=""
+        width={20}
+        height={20}
+        loading="lazy"
+        decoding="async"
         className="h-5 w-5 shrink-0 rounded-full object-contain"
       />
     )
@@ -1275,6 +1138,10 @@ function ClubCrest({ team }: { team?: Team }) {
       <img
         src={team.crestUrl}
         alt=""
+        width={32}
+        height={32}
+        loading="lazy"
+        decoding="async"
         className="h-8 w-8 shrink-0 rounded-full object-contain"
       />
     )

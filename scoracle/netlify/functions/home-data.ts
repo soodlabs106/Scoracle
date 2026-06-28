@@ -1,33 +1,42 @@
+import {
+  fetchJson,
+  jsonResponse,
+  logInfo,
+  publicError,
+  requestIdFrom,
+} from '../core/http.ts'
+import type { NetlifyFunctionEvent } from '../core/types.ts'
+
 const PULSE_BASE_URL = 'https://footballapi.pulselive.com/football'
 const DEFAULT_COMP_SEASON_ID = '841'
 const DEFAULT_LEADERBOARD_FALLBACK_COMP_SEASON_ID = '777'
 const CACHE_TTL_MS = 1000 * 60 * 30
 const FALLBACK_CRESTS_BY_PULSE_ID = new Map([
-  ['1', '/team-crests/1.png'],
-  ['2', '/team-crests/2.png'],
-  ['127', '/team-crests/127.png'],
-  ['130', '/team-crests/130.png'],
-  ['131', '/team-crests/131.png'],
-  ['4', '/team-crests/4.png'],
-  ['5', '/team-crests/5.png'],
-  ['6', '/team-crests/6.png'],
-  ['7', '/team-crests/7.png'],
-  ['34', '/team-crests/34.png'],
-  ['41', '/team-crests/41.png'],
-  ['8', '/team-crests/8.png'],
-  ['9', '/team-crests/9.png'],
-  ['10', '/team-crests/10.png'],
-  ['11', '/team-crests/11.png'],
-  ['12', '/team-crests/12.png'],
-  ['23', '/team-crests/23.png'],
-  ['15', '/team-crests/15.png'],
-  ['29', '/team-crests/29.png'],
-  ['21', '/team-crests/21.png'],
+  ['1', '/team-crests/1.webp'],
+  ['2', '/team-crests/2.webp'],
+  ['127', '/team-crests/127.webp'],
+  ['130', '/team-crests/130.webp'],
+  ['131', '/team-crests/131.webp'],
+  ['4', '/team-crests/4.webp'],
+  ['5', '/team-crests/5.webp'],
+  ['6', '/team-crests/6.webp'],
+  ['7', '/team-crests/7.webp'],
+  ['34', '/team-crests/34.webp'],
+  ['41', '/team-crests/41.webp'],
+  ['8', '/team-crests/8.webp'],
+  ['9', '/team-crests/9.webp'],
+  ['10', '/team-crests/10.webp'],
+  ['11', '/team-crests/11.webp'],
+  ['12', '/team-crests/12.webp'],
+  ['23', '/team-crests/23.webp'],
+  ['15', '/team-crests/15.webp'],
+  ['29', '/team-crests/29.webp'],
+  ['21', '/team-crests/21.webp'],
 ])
 const FALLBACK_PLAYER_PHOTOS_BY_NAME = new Map([
-  ['erlinghaaland', '/player-photos/erling-haaland.png'],
-  ['brunofernandes', '/player-photos/bruno-fernandes.png'],
-  ['davidraya', '/player-photos/david-raya.png'],
+  ['erlinghaaland', '/player-photos/erling-haaland.webp'],
+  ['brunofernandes', '/player-photos/bruno-fernandes.webp'],
+  ['davidraya', '/player-photos/david-raya.webp'],
 ])
 const FALLBACK_TEAM_CODES_BY_PULSE_ID = new Map([
   ['1', 'ARS'],
@@ -52,18 +61,72 @@ const FALLBACK_TEAM_CODES_BY_PULSE_ID = new Map([
   ['21', 'TOT'],
 ])
 
-export async function handler(event) {
-  const params = event.queryStringParameters ?? {}
-  const season = params.season ?? process.env.SCORACLE_SEASON ?? '2026'
+type PulseRankedPlayer = {
+  rank?: number
+  value?: number
+  owner?: {
+    id?: number | string
+    playerId?: number | string
+    name?: { display?: string }
+    currentTeam?: unknown
+  }
+}
+
+type PulseRankedResponse = {
+  stats?: { content?: PulseRankedPlayer[] }
+}
+
+export async function handler(event: NetlifyFunctionEvent) {
+  const requestId = requestIdFrom(event)
+
+  if (event.httpMethod && event.httpMethod !== 'GET') {
+    return jsonResponse({ error: 'METHOD_NOT_ALLOWED', requestId }, 405, 'no-store', requestId)
+  }
+
+  const season = process.env.SCORACLE_SEASON ?? '2026'
   const compSeasonId =
     process.env.PULSE_COMP_SEASON_ID ?? DEFAULT_COMP_SEASON_ID
   const cacheKey = `home-data-v4:${season}:${compSeasonId}`
+  const forceRefresh = isAuthorizedRefresh(event)
 
   try {
     const cached = await readSupabaseCache(cacheKey)
 
-    if (cached && hasFixtureDatabaseIds(cached)) {
-      return jsonResponse(cached)
+    if (cached?.isFresh && !forceRefresh && hasFixtureDatabaseIds(cached.payload)) {
+      logInfo('home_data_cache_hit', { requestId, cacheKey })
+      return jsonResponse(
+        cached.payload,
+        200,
+        'public, max-age=60, s-maxage=300, stale-while-revalidate=1800',
+        requestId,
+      )
+    }
+
+    if (
+      cached?.payload &&
+      !cached.isFresh &&
+      !forceRefresh &&
+      hasFixtureDatabaseIds(cached.payload)
+    ) {
+      const refreshQueued = await queueBackgroundRefresh(cacheKey, requestId)
+
+      if (refreshQueued) {
+        logInfo('home_data_stale_while_revalidate', { requestId, cacheKey })
+        return jsonResponse(
+          {
+            ...cached.payload,
+            sources: [
+              ...new Set([
+                ...(cached.payload.sources ?? []),
+                'Refreshing provider data in background',
+              ]),
+            ],
+          },
+          200,
+          'public, max-age=30, s-maxage=60, stale-while-revalidate=1800',
+          requestId,
+        )
+      }
     }
 
     const [standingsResponse, fixturesResponse] = await Promise.all([
@@ -85,11 +148,14 @@ export async function handler(event) {
       }))
       .sort((first, second) => first.name.localeCompare(second.name))
 
-    const [scorers, assists, cleanSheets] = await Promise.all([
+    const [scorersResult, assistsResult, cleanSheetsResult] = await Promise.allSettled([
       fetchPulseLeadersWithFallback('goals', compSeasonId, teamsById),
       fetchPulseLeadersWithFallback('goal_assist', compSeasonId, teamsById),
       fetchPulseLeadersWithFallback('clean_sheet', compSeasonId, teamsById),
     ])
+    const scorers = settledValue(scorersResult)
+    const assists = settledValue(assistsResult)
+    const cleanSheets = settledValue(cleanSheetsResult)
 
     const syncedFixtures = await syncHomeDataToSupabase({
       season,
@@ -115,27 +181,123 @@ export async function handler(event) {
     }
 
     await writeSupabaseCache(cacheKey, payload)
+    await pruneOperationalData().catch(() => undefined)
 
-    return jsonResponse(payload)
-  } catch (error) {
+    logInfo('home_data_refreshed', {
+      requestId,
+      fixtures: payload.fixtures.length,
+      teams: payload.teams.length,
+    })
     return jsonResponse(
-      {
-        error: 'Unable to load Scoracle home data',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      payload,
+      200,
+      'public, max-age=60, s-maxage=300, stale-while-revalidate=1800',
+      requestId,
+    )
+  } catch (error) {
+    const stale = await readSupabaseCache(cacheKey).catch(() => null)
+
+    if (stale?.payload && hasFixtureDatabaseIds(stale.payload)) {
+      logInfo('home_data_stale_fallback', { requestId, cacheKey })
+      return jsonResponse(
+        {
+          ...stale.payload,
+          sources: [...new Set([...(stale.payload.sources ?? []), 'Stale cache fallback'])],
+        },
+        200,
+        'public, max-age=30, s-maxage=60',
+        requestId,
+      )
+    }
+
+    return jsonResponse(
+      publicError(error, requestId, 'HOME_DATA_UNAVAILABLE'),
       502,
+      'no-store',
+      requestId,
     )
   }
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url)
+function isAuthorizedRefresh(event) {
+  const expected = process.env.INTERNAL_REFRESH_SECRET
+  const provided =
+    event.headers?.['x-scoracle-refresh-token'] ??
+    event.headers?.['X-Scoracle-Refresh-Token']
+  return Boolean(expected && provided && provided === expected)
+}
 
-  if (!response.ok) {
-    throw new Error(`${url} returned ${response.status}`)
+async function queueBackgroundRefresh(cacheKey, requestId) {
+  const siteUrl = process.env.URL ?? process.env.DEPLOY_PRIME_URL
+  const secret = process.env.INTERNAL_REFRESH_SECRET
+
+  if (!siteUrl || !secret || !(await tryAcquireSyncLease(cacheKey))) {
+    return false
   }
 
-  return response.json()
+  try {
+    const response = await fetch(
+      `${siteUrl.replace(/\/$/, '')}/.netlify/functions/home-data-refresh-background`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-scoracle-refresh-token': secret,
+          'x-parent-request-id': requestId,
+        },
+      },
+    )
+
+    if (!response.ok) {
+      await releaseSyncLease(cacheKey)
+      return false
+    }
+
+    return true
+  } catch {
+    await releaseSyncLease(cacheKey)
+    return false
+  }
+}
+
+async function tryAcquireSyncLease(cacheKey) {
+  const config = getSupabaseConfig()
+
+  if (!config) {
+    return false
+  }
+
+  const response = await fetch(`${config.url}/rest/v1/rpc/try_acquire_sync_lease`, {
+    method: 'POST',
+    headers: {
+      ...supabaseHeaders(config),
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ requested_lease_key: cacheKey, lease_seconds: 300 }),
+  })
+
+  return response.ok && (await response.json()) === true
+}
+
+export async function releaseSyncLease(cacheKey) {
+  const config = getSupabaseConfig()
+
+  if (!config) {
+    return
+  }
+
+  await fetch(`${config.url}/rest/v1/rpc/release_sync_lease`, {
+    method: 'POST',
+    headers: {
+      ...supabaseHeaders(config),
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ requested_lease_key: cacheKey }),
+  })
+}
+
+function settledValue(result) {
+  return result.status === 'fulfilled' ? result.value : []
 }
 
 function normalizeStandings(response, teamsById) {
@@ -246,7 +408,7 @@ async function fetchPulseLeadersWithFallback(statKey, compSeasonId, teamsById) {
 }
 
 async function fetchPulseLeaders(statKey, compSeasonId, teamsById, sourceLabel) {
-  const response = await fetchJson(
+  const response = await fetchJson<PulseRankedResponse>(
     `${PULSE_BASE_URL}/stats/ranked/players/${statKey}?comps=1&compSeasons=${compSeasonId}&page=0&pageSize=20`,
   )
   const rows = response?.stats?.content ?? []
@@ -351,10 +513,9 @@ async function readSupabaseCache(requestKey) {
     return null
   }
 
-  const now = encodeURIComponent(new Date().toISOString())
   const key = encodeURIComponent(requestKey)
   const response = await fetch(
-    `${config.url}/rest/v1/home_data_cache?select=payload&request_key=eq.${key}&expires_at=gt.${now}&limit=1`,
+    `${config.url}/rest/v1/home_data_cache?select=payload,expires_at&request_key=eq.${key}&limit=1`,
     {
       headers: supabaseHeaders(config),
     },
@@ -365,7 +526,16 @@ async function readSupabaseCache(requestKey) {
   }
 
   const rows = await response.json()
-  return rows?.[0]?.payload ?? null
+  const row = rows?.[0]
+
+  if (!row) {
+    return null
+  }
+
+  return {
+    payload: row.payload,
+    isFresh: new Date(row.expires_at).getTime() > Date.now(),
+  }
 }
 
 function hasFixtureDatabaseIds(payload) {
@@ -394,6 +564,23 @@ async function writeSupabaseCache(requestKey, payload) {
       expires_at: new Date(Date.now() + CACHE_TTL_MS).toISOString(),
       updated_at: new Date().toISOString(),
     }),
+  })
+}
+
+async function pruneOperationalData() {
+  const config = getSupabaseConfig()
+
+  if (!config) {
+    return
+  }
+
+  await fetch(`${config.url}/rest/v1/rpc/prune_operational_data`, {
+    method: 'POST',
+    headers: {
+      ...supabaseHeaders(config),
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ retention_days: 90 }),
   })
 }
 
@@ -493,7 +680,7 @@ async function upsertSupabaseRows(config, table, onConflict, rows) {
     throw new Error(`Supabase ${table} sync failed: ${details}`)
   }
 
-  return response.json()
+  return (await response.json()) as Array<Record<string, unknown>>
 }
 
 function getSupabaseConfig() {
@@ -514,13 +701,3 @@ function supabaseHeaders(config) {
   }
 }
 
-function jsonResponse(payload, statusCode = 200) {
-  return {
-    statusCode,
-    headers: {
-      'content-type': 'application/json',
-      'cache-control': 'no-store',
-    },
-    body: JSON.stringify(payload),
-  }
-}
