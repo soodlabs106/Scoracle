@@ -44,13 +44,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const applySession = useCallback(
     async (session: AuthState['session'], nextMessage: string | null = null) => {
       if (!session?.user) {
-        setState({
+        setState((current) => ({
           session: null,
           user: null,
           profile: null,
           isLoading: false,
-          message: nextMessage,
-        })
+          message: nextMessage ?? current.message,
+        }))
         return null
       }
 
@@ -67,7 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const cachedAvatar = await cacheProviderAvatar(
             session.access_token,
-            providerAvatar,
           )
           const nextAvatarUrl = cachedAvatar?.avatarUrl ?? providerAvatar
           const nextAvatarPath = cachedAvatar?.avatarPath ?? null
@@ -316,19 +315,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = useCallback(async (email: string) => {
     const normalizedEmail = email.trim().toLowerCase()
-    const { data: exists, error: existsError } = await supabase.rpc(
-      'auth_email_exists',
-      { candidate_email: normalizedEmail },
-    )
-
-    if (existsError) {
-      throw new Error('Could not check that email address.')
-    }
-
-    if (!exists) {
-      throw new Error('No Scoracle account exists for that email.')
-    }
-
     const { error } = await supabase.auth.resetPasswordForEmail(
       normalizedEmail,
       {
@@ -564,14 +550,13 @@ function getProviderAvatarUrl(user: NonNullable<AuthState['user']>) {
   return null
 }
 
-async function cacheProviderAvatar(accessToken: string, avatarUrl: string) {
+async function cacheProviderAvatar(accessToken: string) {
   const response = await fetch('/api/cache-oauth-avatar', {
     method: 'POST',
     headers: {
       authorization: `Bearer ${accessToken}`,
       'content-type': 'application/json',
     },
-    body: JSON.stringify({ avatarUrl }),
   })
 
   if (!response.ok) {

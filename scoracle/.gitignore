@@ -10,12 +10,15 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+playwright-report/
+test-results/
 .env
 .env.local
 .env.*.local
 .netlify
 *.local
 supabase/.temp/
+supabase/.branches/
 public/local-leaderboard-simulation.json
 public/local-leaderboard-simulation.md
 public/local-prediction-simulation.json

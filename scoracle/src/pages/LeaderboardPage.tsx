@@ -15,7 +15,7 @@ import { useAuth } from '../context/useAuth'
 import {
   fetchMatchWeekLeaderboard,
   fetchOverallLeaderboard,
-  fetchRankMovement,
+  fetchRankTimeline,
   fetchScoredMatchWeeks,
 } from '../data/leaderboard'
 import type {
@@ -58,13 +58,11 @@ export function LeaderboardPage() {
       setError(null)
 
       try {
-        const [overall, weeks] = await Promise.all([
+        const [overall, weeks, timeline] = await Promise.all([
           fetchOverallLeaderboard(),
           fetchScoredMatchWeeks(),
+          fetchRankTimeline(),
         ])
-        const timeline = await Promise.all(
-          weeks.map((matchWeek) => fetchRankMovement(matchWeek)),
-        )
 
         if (!isMounted) {
           return
@@ -72,7 +70,7 @@ export function LeaderboardPage() {
 
         setOverallRows(overall)
         setScoredMatchWeeks(weeks)
-        setRankTimelineRows(timeline.flat())
+        setRankTimelineRows(timeline)
         setSelectedMatchWeek((current) => current ?? weeks[0] ?? null)
       } catch (caughtError) {
         if (isMounted) {
@@ -110,10 +108,10 @@ export function LeaderboardPage() {
       setError(null)
 
       try {
-        const [weekly, movement] = await Promise.all([
-          fetchMatchWeekLeaderboard(matchWeek),
-          fetchRankMovement(matchWeek),
-        ])
+        const weekly = await fetchMatchWeekLeaderboard(matchWeek)
+        const movement = rankTimelineRows.filter(
+          (row) => row.match_week === matchWeek,
+        )
         const movementByUser = new Map(
           movement.map((row) => [row.user_id, row]),
         )
@@ -146,7 +144,7 @@ export function LeaderboardPage() {
     return () => {
       isMounted = false
     }
-  }, [selectedMatchWeek, user])
+  }, [rankTimelineRows, selectedMatchWeek, user])
 
   const currentOverallRow = useMemo(
     () => overallRows.find((row) => row.user_id === user?.id),

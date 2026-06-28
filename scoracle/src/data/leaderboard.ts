@@ -27,8 +27,6 @@ export async function fetchOverallLeaderboard() {
     return normalizeLeaderboardRows(simulation.overall)
   }
 
-  await scoreCurrentUserPredictions()
-
   const { data, error } = await supabase.rpc('get_overall_leaderboard')
 
   if (error) {
@@ -44,8 +42,6 @@ export async function fetchMatchWeekLeaderboard(matchWeek: number) {
   if (simulation?.enabled) {
     return normalizeMatchWeekRows(simulation.matchWeeks[String(matchWeek)] ?? [])
   }
-
-  await scoreCurrentUserPredictions()
 
   const { data, error } = await supabase.rpc('get_match_week_leaderboard', {
     selected_match_week: matchWeek,
@@ -67,8 +63,6 @@ export async function fetchRankMovement(matchWeek: number) {
     )
   }
 
-  await scoreCurrentUserPredictions()
-
   const { data, error } = await supabase.rpc('get_match_week_rank_movement', {
     selected_match_week: matchWeek,
   })
@@ -89,8 +83,6 @@ export async function fetchScoredMatchWeeks() {
       .filter((matchWeek) => Number.isInteger(matchWeek))
   }
 
-  await scoreCurrentUserPredictions()
-
   const { data, error } = await supabase.rpc('get_scored_match_weeks')
 
   if (error) {
@@ -102,17 +94,52 @@ export async function fetchScoredMatchWeeks() {
     .filter((matchWeek) => Number.isInteger(matchWeek))
 }
 
-async function scoreCurrentUserPredictions() {
-  const { error } = await supabase.rpc(
-    'score_my_predictions_for_completed_fixtures',
-  )
+export async function fetchRankTimeline() {
+  const simulation = await loadLocalSimulation()
+
+  if (simulation?.enabled) {
+    return normalizeRankMovementRows(
+      Object.values(simulation.rankMovement).flat(),
+    )
+  }
+
+  const { data, error } = await supabase.rpc('get_rank_timeline')
 
   if (error) {
+    if (isMissingRankTimelineFunction(error)) {
+      const matchWeeks = await fetchScoredMatchWeeks()
+      const weeklyMovement = await Promise.all(
+        matchWeeks.map((matchWeek) => fetchRankMovement(matchWeek)),
+      )
+      return weeklyMovement.flat()
+    }
+
     throw new Error(error.message)
   }
+
+  return normalizeRankMovementRows(data ?? [])
+}
+
+function isMissingRankTimelineFunction(error: {
+  code?: string
+  message?: string
+}) {
+  return (
+    error.code === 'PGRST202' ||
+    error.message?.includes(
+      'Could not find the function public.get_rank_timeline',
+    ) === true
+  )
 }
 
 async function loadLocalSimulation() {
+  if (
+    !import.meta.env.DEV ||
+    import.meta.env.VITE_ENABLE_LOCAL_SIMULATION !== 'true'
+  ) {
+    return null
+  }
+
   if (!simulationPromise) {
     simulationPromise = fetch(LOCAL_SIMULATION_PATH, { cache: 'no-store' })
       .then(async (response) => {

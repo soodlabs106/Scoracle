@@ -2,68 +2,32 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react'
-import { Activity, RefreshCw, Users } from 'lucide-react'
+import { Activity, Database, HelpCircle, RefreshCw, Users } from 'lucide-react'
 import { Link } from 'react-router'
-import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/useAuth'
 import type { AdminProfileRow } from '../types/auth'
-
-type AdminPredictionRow = {
-  id: string
-  fixture_id: string
-  match_week: number
-  predicted_home_score: number
-  predicted_away_score: number
-  closeness: string | null
-  points: number
-  is_locked: boolean
-  created_at: string
-}
-
-type AdminFixtureRow = {
-  id: string
-  matchweek: number
-  kickoff_utc: string
-  status: string
-  home_score: number | null
-  away_score: number | null
-  home_team_id: string
-  away_team_id: string
-}
-
-type AdminTeamRow = {
-  id: string
-  canonical_name: string
-  crest_url: string | null
-}
-
-type ActivityLogRow = {
-  id: number
-  user_id: string | null
-  target_user_id: string | null
-  event_type: ActivityEventType
-  metadata: Record<string, unknown>
-  created_at: string
-}
-
-type ActivityEventType =
-  | 'ACCOUNT_CREATED'
-  | 'SIGNED_IN'
-  | 'SIGNED_OUT'
-  | 'SESSION_TIMEOUT'
-  | 'PREDICTION_CREATED'
-  | 'PREDICTION_UPDATED'
-  | 'PREDICTION_DELETED'
-  | 'PROFILE_UPDATED'
-  | 'ONBOARDING_COMPLETED'
-  | 'USER_DISABLED'
-  | 'USER_ENABLED'
+import { useHelp } from '../features/help/useHelp'
+import {
+  fetchAdminActivityLogs,
+  fetchAdminUserDetails,
+  fetchAdminUsers,
+  fetchSystemJobRuns,
+  isSystemJobRunsMigrationMissing,
+  updateAdminUserStatus,
+  type ActivityEventType,
+  type ActivityLogRow,
+  type AdminFixtureRow,
+  type AdminPredictionRow,
+  type AdminTeamRow,
+  type SystemJobRunRow,
+  type SystemJobRunStatus,
+} from '../features/admin/adminRepository'
 
 const LOG_PAGE_SIZE = 50
+const USER_PAGE_SIZE = 50
 
 const ACTIVITY_FILTERS: Array<{
   value: 'all' | ActivityEventType
@@ -84,9 +48,13 @@ const ACTIVITY_FILTERS: Array<{
 ]
 
 export function AdminPage() {
-  const { user, isAdmin, isLoading } = useAuth()
-  const [activeTab, setActiveTab] = useState<'users' | 'activity'>('users')
+  const { user, session, isAdmin, isLoading } = useAuth()
+  const { openHelp } = useHelp()
+  const [activeTab, setActiveTab] = useState<
+    'users' | 'activity' | 'maintenance'
+  >('users')
   const [users, setUsers] = useState<AdminProfileRow[]>([])
+  const [hasMoreUsers, setHasMoreUsers] = useState(false)
   const [activityLogs, setActivityLogs] = useState<ActivityLogRow[]>([])
   const [activityFilter, setActivityFilter] = useState<
     'all' | ActivityEventType
@@ -94,7 +62,11 @@ export function AdminPage() {
   const [activityUserFilter, setActivityUserFilter] = useState('all')
   const [hasMoreActivity, setHasMoreActivity] = useState(false)
   const [isActivityFetching, setIsActivityFetching] = useState(false)
-  const hasPrunedActivity = useRef(false)
+  const [maintenanceRuns, setMaintenanceRuns] = useState<SystemJobRunRow[]>([])
+  const [isMaintenanceFetching, setIsMaintenanceFetching] = useState(false)
+  const [maintenanceError, setMaintenanceError] = useState<string | null>(null)
+  const [maintenanceNeedsMigration, setMaintenanceNeedsMigration] =
+    useState(false)
   const [selectedProfile, setSelectedProfile] =
     useState<AdminProfileRow | null>(null)
   const [selectedPredictions, setSelectedPredictions] = useState<
@@ -111,21 +83,16 @@ export function AdminPage() {
   const [isProfileFetching, setIsProfileFetching] = useState(false)
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (offset = 0) => {
     setIsFetching(true)
     setMessage(null)
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select(
-        'id, username, first_name, last_name, role, is_disabled, favorite_club, avatar_url, onboarding_required, onboarding_completed_at, created_at',
-      )
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      setMessage(error.message)
-    } else {
-      setUsers((data ?? []) as AdminProfileRow[])
+    try {
+      const rows = await fetchAdminUsers(offset, USER_PAGE_SIZE)
+      setUsers((current) => (offset === 0 ? rows : [...current, ...rows]))
+      setHasMoreUsers(rows.length === USER_PAGE_SIZE)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not load users.')
     }
 
     setIsFetching(false)
@@ -136,34 +103,19 @@ export function AdminPage() {
       setIsActivityFetching(true)
       setMessage(null)
 
-      let query = supabase
-        .from('app_activity_logs')
-        .select(
-          'id, user_id, target_user_id, event_type, metadata, created_at',
+      try {
+        const rows = await fetchAdminActivityLogs(
+          offset,
+          LOG_PAGE_SIZE,
+          activityFilter,
+          activityUserFilter,
         )
-        .order('created_at', { ascending: false })
-        .range(offset, offset + LOG_PAGE_SIZE - 1)
-
-      if (activityFilter !== 'all') {
-        query = query.eq('event_type', activityFilter)
-      }
-
-      if (activityUserFilter !== 'all') {
-        query = query.or(
-          `user_id.eq.${activityUserFilter},target_user_id.eq.${activityUserFilter}`,
-        )
-      }
-
-      const { data, error } = await query
-
-      if (error) {
-        setMessage(error.message)
-      } else {
-        const rows = (data ?? []) as ActivityLogRow[]
         setActivityLogs((current) =>
           offset === 0 ? rows : [...current, ...rows],
         )
         setHasMoreActivity(rows.length === LOG_PAGE_SIZE)
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Could not load activity.')
       }
 
       setIsActivityFetching(false)
@@ -179,74 +131,40 @@ export function AdminPage() {
     setIsProfileFetching(true)
     setMessage(null)
 
-    const { data: predictions, error: predictionsError } = await supabase
-      .from('predictions')
-      .select(
-        'id, fixture_id, match_week, predicted_home_score, predicted_away_score, closeness, points, is_locked, created_at',
-      )
-      .eq('user_id', target.id)
-      .order('match_week', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(25)
-
-    if (predictionsError) {
-      setMessage(predictionsError.message)
-      setIsProfileFetching(false)
-      return
-    }
-
-    const predictionRows = (predictions ?? []) as AdminPredictionRow[]
-    setSelectedPredictions(predictionRows)
-
-    const fixtureIds = Array.from(
-      new Set(predictionRows.map((prediction) => prediction.fixture_id)),
-    )
-
-    if (fixtureIds.length === 0) {
-      setIsProfileFetching(false)
-      return
-    }
-
-    const { data: fixtures, error: fixturesError } = await supabase
-      .from('fixtures')
-      .select(
-        'id, matchweek, kickoff_utc, status, home_score, away_score, home_team_id, away_team_id',
-      )
-      .in('id', fixtureIds)
-
-    if (fixturesError) {
-      setMessage(fixturesError.message)
-      setIsProfileFetching(false)
-      return
-    }
-
-    const fixtureRows = (fixtures ?? []) as AdminFixtureRow[]
-    setSelectedFixtures(new Map(fixtureRows.map((fixture) => [fixture.id, fixture])))
-
-    const teamIds = Array.from(
-      new Set(
-        fixtureRows.flatMap((fixture) => [
-          fixture.home_team_id,
-          fixture.away_team_id,
-        ]),
-      ),
-    )
-
-    if (teamIds.length > 0) {
-      const { data: teams, error: teamsError } = await supabase
-        .from('teams')
-        .select('id, canonical_name, crest_url')
-        .in('id', teamIds)
-
-      if (teamsError) {
-        setMessage(teamsError.message)
-      } else {
-        const teamRows = (teams ?? []) as AdminTeamRow[]
-        setSelectedTeams(new Map(teamRows.map((team) => [team.id, team])))
-      }
+    try {
+      const details = await fetchAdminUserDetails(target.id)
+      setSelectedPredictions(details.predictions)
+      setSelectedFixtures(new Map(details.fixtures.map((row) => [row.id, row])))
+      setSelectedTeams(new Map(details.teams.map((row) => [row.id, row])))
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not load user details.')
     }
 
     setIsProfileFetching(false)
+  }, [])
+
+  const fetchMaintenanceRuns = useCallback(async () => {
+    setIsMaintenanceFetching(true)
+    setMaintenanceError(null)
+    setMaintenanceNeedsMigration(false)
+
+    try {
+      setMaintenanceRuns(await fetchSystemJobRuns(50))
+    } catch (error) {
+      if (isSystemJobRunsMigrationMissing(error)) {
+        setMaintenanceRuns([])
+        setMaintenanceNeedsMigration(true)
+        return
+      }
+
+      setMaintenanceError(
+        error instanceof Error
+          ? error.message
+          : 'Could not load system maintenance logs.',
+      )
+    } finally {
+      setIsMaintenanceFetching(false)
+    }
   }, [])
 
   const selectedPredictionStats = useMemo(() => {
@@ -267,7 +185,7 @@ export function AdminPage() {
     }
 
     const timeoutId = window.setTimeout(() => {
-      void fetchUsers()
+      void fetchUsers(0)
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
@@ -278,17 +196,24 @@ export function AdminPage() {
       return
     }
 
-    if (!hasPrunedActivity.current) {
-      hasPrunedActivity.current = true
-      void supabase.rpc('prune_activity_logs', { retention_days: 90 })
-    }
-
     const timeoutId = window.setTimeout(() => {
       void fetchActivityLogs(0)
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
   }, [activeTab, fetchActivityLogs, isAdmin])
+
+  useEffect(() => {
+    if (!isAdmin || activeTab !== 'maintenance') {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void fetchMaintenanceRuns()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [activeTab, fetchMaintenanceRuns, isAdmin])
 
   async function toggleDisabled(target: AdminProfileRow) {
     if (target.id === user?.id) {
@@ -299,15 +224,12 @@ export function AdminPage() {
     setUpdatingUserId(target.id)
     setMessage(null)
 
-    const { data, error } = await supabase.rpc('admin_set_user_disabled', {
-      target_user_id: target.id,
-      disabled: !target.is_disabled,
-    })
-
-    if (error) {
-      setMessage(error.message)
-    } else {
-      const updated = Array.isArray(data) ? data[0] : null
+    try {
+      const updated = await updateAdminUserStatus(
+        session?.access_token ?? '',
+        target.id,
+        !target.is_disabled,
+      )
       setUsers((current) =>
         current.map((row) =>
           updated && row.id === updated.id
@@ -322,6 +244,10 @@ export function AdminPage() {
             : current,
         )
       }
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : 'Could not update user status.',
+      )
     }
 
     setUpdatingUserId(null)
@@ -363,12 +289,23 @@ export function AdminPage() {
               View user IDs, read-only profiles, and account status. Emails and passwords are not shown.
             </p>
           </div>
-          <Link
-            to="/"
-            className="rounded-lg border border-[#3CC8A5] px-4 py-2 text-center text-sm font-semibold text-[#3CC8A5] transition hover:bg-[#3CC8A5]/10"
-          >
-            Home
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openHelp}
+              aria-label="Open Scoracle help"
+              title="Help"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#DCD5FF] bg-white text-[#5B3FFF] transition hover:bg-[#F1ECFF] focus:outline-none focus:ring-2 focus:ring-[#5B3FFF]/30"
+            >
+              <HelpCircle size={18} aria-hidden="true" />
+            </button>
+            <Link
+              to="/"
+              className="rounded-lg border border-[#3CC8A5] px-4 py-2 text-center text-sm font-semibold text-[#3CC8A5] transition hover:bg-[#3CC8A5]/10"
+            >
+              Home
+            </Link>
+          </div>
         </div>
 
         {message ? (
@@ -378,7 +315,7 @@ export function AdminPage() {
         ) : null}
 
         <div
-          className="mt-5 flex w-full max-w-sm rounded-lg border border-[#DCD5FF] bg-[#F7F5FF] p-1"
+          className="mt-5 flex w-full max-w-xl rounded-lg border border-[#DCD5FF] bg-[#F7F5FF] p-1"
           role="tablist"
           aria-label="Admin sections"
         >
@@ -409,6 +346,21 @@ export function AdminPage() {
           >
             <Activity size={16} aria-hidden="true" />
             Activity log
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'maintenance'}
+            onClick={() => setActiveTab('maintenance')}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-bold transition ${
+              activeTab === 'maintenance'
+                ? 'bg-white text-[#5B3FFF] shadow-sm'
+                : 'text-[#555B7A] hover:text-[#12163F]'
+            }`}
+          >
+            <Database size={16} aria-hidden="true" />
+            <span className="hidden sm:inline">System Maintenance</span>
+            <span className="sm:hidden">Maintenance</span>
           </button>
         </div>
 
@@ -489,6 +441,18 @@ export function AdminPage() {
                 </tbody>
                 </table>
               </div>
+              {hasMoreUsers ? (
+                <div className="border-t border-[#DCD5FF] bg-[#F7F5FF] p-3 text-right">
+                  <button
+                    type="button"
+                    onClick={() => void fetchUsers(users.length)}
+                    disabled={isFetching}
+                    className="rounded-lg bg-[#5B3FFF] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    {isFetching ? 'Loading...' : 'Load more users'}
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             <AdminProfilePanel
@@ -500,7 +464,7 @@ export function AdminPage() {
               isLoading={isProfileFetching}
             />
           </div>
-        ) : (
+        ) : activeTab === 'activity' ? (
           <ActivityLogPanel
             logs={activityLogs}
             users={users}
@@ -513,10 +477,189 @@ export function AdminPage() {
             onRefresh={() => void fetchActivityLogs(0)}
             onLoadMore={() => void fetchActivityLogs(activityLogs.length)}
           />
+        ) : (
+          <SystemMaintenancePanel
+            runs={maintenanceRuns}
+            isLoading={isMaintenanceFetching}
+            error={maintenanceError}
+            needsMigration={maintenanceNeedsMigration}
+            onRefresh={() => void fetchMaintenanceRuns()}
+          />
         )}
       </section>
     </main>
   )
+}
+
+function SystemMaintenancePanel({
+  runs,
+  isLoading,
+  error,
+  needsMigration,
+  onRefresh,
+}: {
+  runs: SystemJobRunRow[]
+  isLoading: boolean
+  error: string | null
+  needsMigration: boolean
+  onRefresh: () => void
+}) {
+  return (
+    <section className="mt-5 overflow-hidden rounded-lg border border-[#DCD5FF] bg-white">
+      <div className="flex flex-col gap-3 border-b border-[#DCD5FF] bg-gradient-to-r from-[#F7F5FF] to-[#E9FFFC] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-xl font-black text-[#12163F]">
+            Supabase Maintenance Logs
+          </h2>
+          <p className="mt-1 text-sm font-medium text-[#555B7A]">
+            Latest 50 lightweight maintenance runs. Details are sanitized before storage.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={isLoading}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#5B3FFF] bg-white px-3 text-sm font-bold text-[#5B3FFF] transition hover:bg-[#F1ECFF] disabled:opacity-50"
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
+            aria-hidden="true"
+          />
+          Refresh
+        </button>
+      </div>
+
+      {error ? (
+        <p className="m-4 rounded-lg border border-[#F45B5B] bg-[#F45B5B]/10 p-3 text-sm font-semibold text-[#8a2626]">
+          {error}
+        </p>
+      ) : null}
+
+      {needsMigration ? (
+        <div className="m-4 rounded-lg border border-[#F59E0B]/60 bg-[#FFF4CC] p-4">
+          <p className="font-bold text-[#12163F]">
+            Maintenance logging is awaiting its database migration.
+          </p>
+          <p className="mt-1 text-sm font-medium text-[#555B7A]">
+            Apply the pending Supabase migrations, then refresh this tab. No application data needs to be changed manually.
+          </p>
+        </div>
+      ) : null}
+
+      {isLoading && runs.length === 0 ? (
+        <p className="p-6 text-center text-sm font-semibold text-[#555B7A]">
+          Loading maintenance logs...
+        </p>
+      ) : null}
+
+      {!isLoading && !error && !needsMigration && runs.length === 0 ? (
+        <div className="p-6 text-center">
+          <p className="font-bold text-[#12163F]">
+            No maintenance runs have been logged yet.
+          </p>
+          <p className="mt-1 text-sm font-medium text-[#555B7A]">
+            Run the GitHub Action manually to create the first entry.
+          </p>
+        </div>
+      ) : null}
+
+      {runs.length > 0 ? (
+        <div className="grid gap-3 p-4">
+          {runs.map((run) => (
+            <MaintenanceRunCard key={run.id} run={run} />
+          ))}
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
+function MaintenanceRunCard({ run }: { run: SystemJobRunRow }) {
+  const details = run.details ?? {}
+  const lightweightCheck = asRecord(details.lightweight_check)
+  const error = asRecord(details.error)
+
+  return (
+    <article className="rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-bold text-[#12163F]">{run.job_name}</h3>
+            <MaintenanceStatusBadge status={run.status} />
+          </div>
+          <p className="mt-1 text-sm font-medium text-[#555B7A]">
+            {new Date(run.ran_at).toLocaleString()}
+          </p>
+        </div>
+        <div className="grid shrink-0 grid-cols-2 gap-x-5 gap-y-1 text-xs sm:text-right">
+          <MetadataValue label="Source" value={stringValue(details.source)} />
+          <MetadataValue label="Trigger" value={stringValue(details.trigger)} />
+          <MetadataValue label="Run ID" value={stringValue(details.run_id)} />
+          <MetadataValue
+            label="Attempt"
+            value={stringValue(details.run_attempt)}
+          />
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-lg border border-[#DCD5FF] bg-[#F7F5FF] px-3 py-2 text-sm font-semibold text-[#12163F]">
+        {stringValue(lightweightCheck?.summary) ??
+          stringValue(error?.message) ??
+          'No check summary recorded.'}
+      </div>
+
+      {error ? (
+        <p className="mt-2 text-sm font-semibold text-[#8a2626]">
+          {stringValue(error.step) ?? 'Maintenance'}: {stringValue(error.message) ?? 'Run failed'}
+          {stringValue(error.http_status)
+            ? ` (HTTP ${stringValue(error.http_status)})`
+            : ''}
+        </p>
+      ) : null}
+
+    </article>
+  )
+}
+
+function MaintenanceStatusBadge({ status }: { status: SystemJobRunStatus }) {
+  const classes: Record<SystemJobRunStatus, string> = {
+    success: 'bg-[#E4FAF3] text-[#146b59]',
+    failed: 'bg-[#FDE7E7] text-[#8a2626]',
+    skipped: 'bg-[#FFF4CC] text-[#7a5c00]',
+  }
+
+  return (
+    <span className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${classes[status]}`}>
+      {status}
+    </span>
+  )
+}
+
+function MetadataValue({
+  label,
+  value,
+}: {
+  label: string
+  value: string | null
+}) {
+  return (
+    <span>
+      <span className="font-bold text-[#555B7A]">{label}: </span>
+      <span className="font-semibold text-[#12163F]">{value ?? '-'}</span>
+    </span>
+  )
+}
+
+function asRecord(value: unknown) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function stringValue(value: unknown) {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return String(value)
+  return null
 }
 
 function ActivityLogPanel({

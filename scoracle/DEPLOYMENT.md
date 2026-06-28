@@ -58,9 +58,23 @@ SCORACLE_SEASON=2026
 PULSE_COMP_SEASON_ID=841
 PULSE_LEADERBOARD_FALLBACK_COMP_SEASON_ID=777
 THESPORTSDB_KEY=123
+INTERNAL_REFRESH_SECRET=GENERATE_A_LONG_RANDOM_SECRET
 ```
 
 Never add the Supabase service role key, database password, Google client secret, Resend key, SMTP password, or private token to a `VITE_` variable or committed file.
+
+`INTERNAL_REFRESH_SECRET` is server-only. It authorizes the demand-driven background cache refresh and must not use a `VITE_` prefix.
+
+## Migration Order
+
+Run all local quality and database gates before applying production migrations. Then use only:
+
+```powershell
+supabase migration list
+supabase db push
+```
+
+Do not use `supabase db reset` against the linked production project. After deployment, verify `/api/health` returns a healthy response before testing authenticated writes.
 
 ## Supabase URL Configuration
 
