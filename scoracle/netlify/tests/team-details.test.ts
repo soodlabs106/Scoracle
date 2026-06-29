@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { handler } from './team-details.ts'
+import { handler } from '../functions/team-details.ts'
 
 describe('team details input validation', () => {
   it('rejects unknown team ids without calling a provider', async () => {

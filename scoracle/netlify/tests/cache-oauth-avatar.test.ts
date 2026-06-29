@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   assertSafeGoogleAvatarUrl,
   providerAvatarFromUser,
-} from './cache-oauth-avatar.ts'
+} from '../functions/cache-oauth-avatar.ts'
 
 describe('OAuth avatar hardening', () => {
   it('reads the provider URL from authenticated user metadata', () => {
