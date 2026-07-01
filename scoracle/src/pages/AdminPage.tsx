@@ -577,6 +577,7 @@ function SystemMaintenancePanel({
 function MaintenanceRunCard({ run }: { run: SystemJobRunRow }) {
   const details = run.details ?? {}
   const lightweightCheck = asRecord(details.lightweight_check)
+  const chatRetention = asRecord(details.chat_retention)
   const error = asRecord(details.error)
 
   return (
@@ -607,6 +608,13 @@ function MaintenanceRunCard({ run }: { run: SystemJobRunRow }) {
           stringValue(error?.message) ??
           'No check summary recorded.'}
       </div>
+
+      {chatRetention ? (
+        <p className="mt-2 text-sm font-semibold text-[#555B7A]">
+          Chat retention: {stringValue(chatRetention.status) ?? 'unknown'} ·{' '}
+          {numberValue(chatRetention.deleted_count) ?? 0} messages deleted
+        </p>
+      ) : null}
 
       {error ? (
         <p className="mt-2 text-sm font-semibold text-[#8a2626]">
@@ -660,6 +668,10 @@ function stringValue(value: unknown) {
   if (typeof value === 'string') return value
   if (typeof value === 'number') return String(value)
   return null
+}
+
+function numberValue(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 function ActivityLogPanel({

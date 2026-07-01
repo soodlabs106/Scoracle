@@ -61,6 +61,70 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messages: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_rooms: {
+        Row: {
+          created_at: string
+          fixture_id: string | null
+          id: string
+          name: string
+          room_type: string
+        }
+        Insert: {
+          created_at?: string
+          fixture_id?: string | null
+          id?: string
+          name: string
+          room_type: string
+        }
+        Update: {
+          created_at?: string
+          fixture_id?: string | null
+          id?: string
+          name?: string
+          room_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_rooms_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "fixtures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fixtures: {
         Row: {
           assists: Json
@@ -594,6 +658,13 @@ export type Database = {
         }[]
       }
       auth_email_exists: { Args: { candidate_email: string }; Returns: boolean }
+      get_chat_display_names: {
+        Args: { user_ids: string[] }
+        Returns: {
+          display_name: string
+          user_id: string
+        }[]
+      }
       get_fixture_match_week_lock_at: {
         Args: { target_fixture_id: string }
         Returns: string
@@ -734,6 +805,7 @@ export type Database = {
         Args: { retention_days?: number }
         Returns: number
       }
+      prune_chat_messages: { Args: never; Returns: number }
       release_sync_lease: {
         Args: { requested_lease_key: string }
         Returns: undefined

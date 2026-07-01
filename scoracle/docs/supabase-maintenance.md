@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`Scoracle Supabase Maintenance` performs legitimate, lightweight application maintenance once per day. It counts active Scoracle profiles using a response capped to one row, then records the result in `public.system_job_runs`. The workflow invokes the reviewed `scripts/supabase-maintenance.sh` script. It is not a fake ping and does not call Netlify, football providers, email services, or frontend endpoints.
+`Scoracle Supabase Maintenance` performs legitimate, lightweight application maintenance once per day. It counts active Scoracle profiles, deletes chat messages older than 14 days, and records the result in `public.system_job_runs`. The workflow invokes the reviewed `scripts/supabase-maintenance.sh` script. It is not a fake ping and does not call Netlify, football providers, email services, or frontend endpoints.
 
 The workflow reduces the chance of a Supabase Free project being considered inactive, but Supabase controls Free-plan pause policy and does not guarantee that any particular request prevents a pause. Check the current Supabase plan terms periodically.
 
@@ -10,7 +10,7 @@ The workflow reduces the chance of a Supabase Free project being considered inac
 
 - Schedule: daily at `03:17 UTC` / `08:47 India time`.
 - GitHub Actions: about 30 short runs per month.
-- Supabase: about 30 bounded reads and 30 audit inserts per month.
+- Supabase: about 30 bounded reads, chat-retention calls, and audit inserts per month.
 - The workflow has a five-minute job timeout and each request has a 30-second timeout.
 - It does not commit, push, build, or deploy anything.
 
@@ -25,7 +25,7 @@ The service-role key is backend-only. Never place it in a `VITE_` variable, brow
 
 ## Manual Run
 
-1. Apply the `20260628193000_system_job_runs.sql` migration to the target Supabase project.
+1. Apply the pending Supabase migrations, including `20260701230000_authenticated_general_chat.sql`.
 2. Push the workflow to GitHub.
 3. Open **GitHub > Actions > Scoracle Supabase Maintenance**.
 4. Select **Run workflow**.
@@ -36,11 +36,11 @@ The admin page loads only the newest 50 rows. RLS permits reads only when the au
 
 ## Status Values
 
-- `success`: the bounded profile count and audit insert both completed.
+- `success`: the bounded profile count, available chat cleanup, and audit insert completed.
 - `failed`: a step failed and the workflow managed to write a sanitized failure row.
-- `skipped`: reserved for a legitimate maintenance run where an optional check cannot be performed. The current active-profile check is required, so it normally records success or failure.
+- `skipped`: reserved for a legitimate optional check. Chat cleanup is safely skipped if its RPC was removed during a documented feature rollback.
 
-Stored details include the workflow/run identifiers, trigger, timestamp, count summary, and sanitized failure location. Secrets, tokens, authorization headers, cookies, and raw Supabase error bodies are never stored.
+Stored details include the workflow/run identifiers, trigger, timestamp, active-profile count, chat cleanup status/deleted count, and sanitized failure location. Secrets, tokens, authorization headers, cookies, and raw Supabase error bodies are never stored.
 
 ## Troubleshooting
 

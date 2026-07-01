@@ -106,6 +106,39 @@ if [[ ! "${active_profile_count}" =~ ^[0-9]+$ ]]; then
 fi
 
 echo "Lightweight check completed successfully."
+
+# Chat messages are intentionally retained for no more than 14 days. The RPC
+# can be absent after an emergency feature rollback; that is a safe skip.
+echo "Pruning expired chat messages."
+failure_step="chat_retention_cleanup"
+chat_cleanup_status="success"
+chat_deleted_count=0
+if ! http_status="$(curl --silent --show-error \
+  --connect-timeout 10 \
+  --max-time 30 \
+  --output "${temp_dir}/chat-cleanup-body.json" \
+  --write-out "%{http_code}" \
+  --request POST \
+  --header "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+  --header "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+  --header "Content-Type: application/json" \
+  --data '{}' \
+  "${SUPABASE_URL%/}/rest/v1/rpc/prune_chat_messages")"; then
+  http_status="network_error"
+  false
+fi
+
+if [[ "${http_status}" =~ ^2 ]]; then
+  chat_deleted_count="$(jq -er 'if type == "number" then . else error("invalid cleanup count") end' "${temp_dir}/chat-cleanup-body.json")"
+elif [[ "${http_status}" == "404" ]] &&
+  jq -e '.code == "PGRST202"' "${temp_dir}/chat-cleanup-body.json" >/dev/null 2>&1; then
+  chat_cleanup_status="skipped"
+  echo "Chat cleanup RPC is not installed; cleanup skipped safely."
+else
+  false
+fi
+
+echo "Chat retention cleanup ${chat_cleanup_status} (${chat_deleted_count} messages deleted)."
 timestamp_utc="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 details="$(jq -n \
   --arg source "github_actions" \
@@ -118,7 +151,9 @@ details="$(jq -n \
   --arg trigger "${TRIGGER}" \
   --arg timestamp_utc "${timestamp_utc}" \
   --argjson active_profile_count "${active_profile_count}" \
-  '{source: $source, purpose: $purpose, workflow: $workflow, repository: $repository, commit_sha: $commit_sha, run_id: $run_id, run_attempt: $run_attempt, trigger: $trigger, timestamp_utc: $timestamp_utc, lightweight_check: {type: "active_profiles_count", success: true, count: $active_profile_count, summary: (($active_profile_count | tostring) + " active profiles")}, checks: {lightweight_read: true, audit_insert: true}}')"
+  --arg chat_cleanup_status "${chat_cleanup_status}" \
+  --argjson chat_deleted_count "${chat_deleted_count}" \
+  '{source: $source, purpose: $purpose, workflow: $workflow, repository: $repository, commit_sha: $commit_sha, run_id: $run_id, run_attempt: $run_attempt, trigger: $trigger, timestamp_utc: $timestamp_utc, lightweight_check: {type: "active_profiles_count", success: true, count: $active_profile_count, summary: (($active_profile_count | tostring) + " active profiles")}, chat_retention: {status: $chat_cleanup_status, deleted_count: $chat_deleted_count, retention_days: 14}, checks: {lightweight_read: true, chat_cleanup: ($chat_cleanup_status == "success"), audit_insert: true}}')"
 payload="$(jq -n \
   --arg job_name "github-daily-maintenance" \
   --arg status "success" \

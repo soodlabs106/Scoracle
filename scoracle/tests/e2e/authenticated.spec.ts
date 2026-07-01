@@ -21,6 +21,8 @@ async function expectNoPageOverflow(page: Page) {
 test('normal user can open profile and is denied admin access', async ({ page }) => {
   await login(page, 'e2e.user@scoracle.local')
   await expect(page.getByText('E2EUser', { exact: true })).toBeVisible()
+  await expect(page.getByTestId('authenticated-chat-column')).toBeVisible()
+  await expect(page.getByTestId('leader-stats-column')).toHaveCount(0)
 
   await page.goto('/profile')
   await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible()
@@ -28,6 +30,22 @@ test('normal user can open profile and is denied admin access', async ({ page })
 
   await page.goto('/admin-soodlabs')
   await expect(page.getByText('Access denied.')).toBeVisible()
+})
+
+test('mobile chat is collapsed above predictions and can be opened', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await login(page, 'e2e.user@scoracle.local')
+
+  const chat = page.getByTestId('authenticated-chat-column')
+  const predictions = page.getByText('Predictions', { exact: true })
+  await expect(chat).toBeVisible()
+  await expect(chat.getByLabel('Chat messages')).toBeHidden()
+  const chatBox = await chat.boundingBox()
+  const predictionsBox = await predictions.boundingBox()
+  expect(chatBox?.y).toBeLessThan(predictionsBox?.y ?? 0)
+
+  await chat.getByRole('button', { name: /general chat/i }).click()
+  await expect(chat.getByLabel('Chat messages')).toBeVisible()
 })
 
 test('disabled user is immediately signed out', async ({ page }) => {

@@ -14,12 +14,14 @@ import {
 import { ForgotPasswordModal } from './components/auth/ForgotPasswordModal'
 import { LoginModal } from './components/auth/LoginModal'
 import { SignupModal } from './components/auth/SignupModal'
+import { ChatPanel } from './components/chat/ChatPanel'
 import { Header } from './components/layout/Header'
 import {
   FilterDropdown,
   type FilterDropdownOption,
 } from './components/ui/FilterDropdown'
 import { useAuth } from './context/useAuth'
+import { isChatEnabled } from './features/chat/chatConfig'
 import { useHomeDataQuery } from './features/home/useHomeDataQuery'
 import {
   listPredictionsForMatchWeek,
@@ -66,6 +68,7 @@ const MONTH_FORMATTER = new Intl.DateTimeFormat('en-IN', {
 
 type ModalKind = 'login' | 'signup' | 'forgot' | null
 type PredictionMessageTone = 'error' | 'success' | 'info'
+const CHAT_ENABLED = isChatEnabled()
 type TeamResult = {
   fixtureId: string
   result: 'W' | 'D' | 'L'
@@ -658,7 +661,16 @@ function App() {
           />
         </aside>
 
-        <section className="flex min-h-0 min-w-0 flex-col gap-4 self-start lg:sticky lg:top-5 lg:max-h-[calc(100vh-40px)]">
+        {user && profile && CHAT_ENABLED ? (
+          <aside
+            className="min-h-0 self-start lg:sticky lg:top-5 lg:col-start-3 lg:row-start-1"
+            data-testid="authenticated-chat-column"
+          >
+            <ChatPanel userId={user.id} displayName={profile.username} />
+          </aside>
+        ) : null}
+
+        <section className="flex min-h-0 min-w-0 flex-col gap-4 self-start lg:sticky lg:top-5 lg:col-start-2 lg:row-start-1 lg:max-h-[calc(100vh-40px)]">
           <div className="shrink-0 rounded-lg border border-[#DCD5FF] bg-white p-4 shadow-[0_12px_32px_rgba(18,22,63,0.08)]">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -859,29 +871,34 @@ function App() {
           </div>
         </section>
 
-        <aside className="space-y-4">
-          <LeaderboardCard
-            title={leaderTitle('Top Scorer', selectedClub)}
-            label="Goals"
-            icon={<Goal className="h-5 w-5" />}
-            leaders={scopedLeaderboards.scorers}
-            teamsById={teamsById}
-          />
-          <LeaderboardCard
-            title={leaderTitle('Most Assists', selectedClub)}
-            label="Assists"
-            icon={<UserRound className="h-5 w-5" />}
-            leaders={scopedLeaderboards.assists}
-            teamsById={teamsById}
-          />
-          <LeaderboardCard
-            title={leaderTitle('Clean Sheets', selectedClub)}
-            label="Clean sheets"
-            icon={<ShieldCheck className="h-5 w-5" />}
-            leaders={scopedLeaderboards.cleanSheets}
-            teamsById={teamsById}
-          />
-        </aside>
+        {!isPredictionMode || !CHAT_ENABLED ? (
+          <aside
+            className="space-y-4 lg:col-start-3 lg:row-start-1"
+            data-testid="leader-stats-column"
+          >
+            <LeaderboardCard
+              title={leaderTitle('Top Scorer', selectedClub)}
+              label="Goals"
+              icon={<Goal className="h-5 w-5" />}
+              leaders={scopedLeaderboards.scorers}
+              teamsById={teamsById}
+            />
+            <LeaderboardCard
+              title={leaderTitle('Most Assists', selectedClub)}
+              label="Assists"
+              icon={<UserRound className="h-5 w-5" />}
+              leaders={scopedLeaderboards.assists}
+              teamsById={teamsById}
+            />
+            <LeaderboardCard
+              title={leaderTitle('Clean Sheets', selectedClub)}
+              label="Clean sheets"
+              icon={<ShieldCheck className="h-5 w-5" />}
+              leaders={scopedLeaderboards.cleanSheets}
+              teamsById={teamsById}
+            />
+          </aside>
+        ) : null}
         </section>
       </main>
 
