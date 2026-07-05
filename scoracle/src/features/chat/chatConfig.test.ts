@@ -10,4 +10,3 @@ describe('chat feature flag', () => {
     expect(isChatEnabled('false')).toBe(false)
   })
 })
-

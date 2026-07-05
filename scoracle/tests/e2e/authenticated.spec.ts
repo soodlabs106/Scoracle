@@ -10,6 +10,21 @@ async function login(page: Page, email: string) {
   await page.getByRole('button', { name: 'Sign in' }).click()
 }
 
+async function expectSignedIn(page: Page) {
+  await expect(page.getByTitle('Open profile')).toBeVisible()
+}
+
+async function openChat(page: Page) {
+  const chat = page.getByTestId('authenticated-chat-column')
+  const messages = chat.getByLabel('Chat messages')
+  await expect(chat).toBeVisible()
+  if (!(await messages.isVisible())) {
+    await chat.getByRole('button', { name: /general chat/i }).click()
+  }
+  await expect(messages).toBeVisible()
+  return chat
+}
+
 async function expectNoPageOverflow(page: Page) {
   const dimensions = await page.evaluate(() => ({
     viewport: window.innerWidth,
@@ -20,7 +35,7 @@ async function expectNoPageOverflow(page: Page) {
 
 test('normal user can open profile and is denied admin access', async ({ page }) => {
   await login(page, 'e2e.user@scoracle.local')
-  await expect(page.getByText('E2EUser', { exact: true })).toBeVisible()
+  await expectSignedIn(page)
   await expect(page.getByTestId('authenticated-chat-column')).toBeVisible()
   await expect(page.getByTestId('leader-stats-column')).toHaveCount(0)
 
@@ -58,12 +73,12 @@ test('disabled user is immediately signed out', async ({ page }) => {
 
 test('database admin can open the protected admin page', async ({ page }) => {
   await login(page, 'e2e.admin@scoracle.local')
-  await expect(page.getByText('E2EAdmin', { exact: true })).toBeVisible()
+  await expectSignedIn(page)
   await page.goto('/admin-soodlabs')
   await expect(page.getByRole('heading', { name: 'Admin', exact: true })).toBeVisible()
   await expect(page.getByText('E2EUser', { exact: true })).toBeVisible()
 
-  await page.getByRole('tab', { name: 'System Maintenance' }).click()
+  await page.getByRole('tab', { name: /maintenance/i }).click()
   await expect(
     page.getByRole('heading', { name: 'Supabase Maintenance Logs' }),
   ).toBeVisible()
@@ -72,7 +87,7 @@ test('database admin can open the protected admin page', async ({ page }) => {
 
 test('signed-in pages do not overflow mobile or tablet viewports', async ({ page }) => {
   await login(page, 'e2e.user@scoracle.local')
-  await expect(page.getByText('E2EUser', { exact: true })).toBeVisible()
+  await expectSignedIn(page)
 
   for (const width of [360, 390, 414, 430, 768, 1024]) {
     await page.setViewportSize({ width, height: 1024 })
@@ -82,6 +97,35 @@ test('signed-in pages do not overflow mobile or tablet viewports', async ({ page
       await expect(page.locator('main')).toBeVisible()
       await expectNoPageOverflow(page)
     }
+  }
+})
+
+test('chat sends, streams, and survives refresh', async ({ page, browser }) => {
+  const secondContext = await browser.newContext({
+    baseURL: 'http://127.0.0.1:4173',
+  })
+  const secondPage = await secondContext.newPage()
+
+  try {
+    await login(page, 'e2e.user@scoracle.local')
+    await login(secondPage, 'e2e.admin@scoracle.local')
+    await expectSignedIn(page)
+    await expectSignedIn(secondPage)
+
+    const firstChat = await openChat(page)
+    const secondChat = await openChat(secondPage)
+    const message = `Realtime release check ${Date.now()}`
+
+    await firstChat.getByLabel('Message General Chat').fill(message)
+    await firstChat.getByRole('button', { name: 'Send message' }).click()
+    await expect(firstChat.getByText(message, { exact: true })).toBeVisible()
+    await expect(secondChat.getByText(message, { exact: true })).toBeVisible()
+
+    await page.reload()
+    const reloadedChat = await openChat(page)
+    await expect(reloadedChat.getByText(message, { exact: true })).toBeVisible()
+  } finally {
+    await secondContext.close()
   }
 })
 

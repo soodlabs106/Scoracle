@@ -110,7 +110,6 @@ begin
       and profile.is_disabled = false;
 end;
 $$;
-
 revoke all on function public.get_chat_display_names(uuid[]) from public, anon;
 grant execute on function public.get_chat_display_names(uuid[]) to authenticated;
 
@@ -149,4 +148,3 @@ begin
   end if;
 end;
 $$;
-

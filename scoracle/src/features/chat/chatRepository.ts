@@ -24,7 +24,6 @@ export async function fetchGeneralChatRoom() {
   if (!data) throw new Error('General Chat is not available.')
   return data as ChatRoom
 }
-
 export async function fetchChatMessages(roomId: string) {
   const cutoff = new Date(
     Date.now() - CHAT_RETENTION_DAYS * 24 * 60 * 60 * 1000,
@@ -98,4 +97,3 @@ export function subscribeToChatMessages(
 export async function unsubscribeFromChatMessages(channel: RealtimeChannel) {
   await supabase.removeChannel(channel)
 }
-

@@ -28,7 +28,7 @@ export function ChatPanel({
       >
         <span className="inline-flex items-center gap-2 text-lg font-semibold">
           <MessageCircle className="h-5 w-5 text-[#5B3FFF]" />
-          ScoracleFC Chat
+          General Chat
         </span>
         <span className="inline-flex items-center gap-1 rounded-full bg-[#E9FFFC] px-3 py-1 text-xs font-bold uppercase lg:hidden">
           {isMobileOpen ? 'Hide' : 'Open'}

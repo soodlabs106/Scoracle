@@ -63,4 +63,3 @@ select results_eq(
 
 select * from finish();
 rollback;
-

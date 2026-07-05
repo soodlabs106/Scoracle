@@ -49,4 +49,17 @@ for (const seed of users) {
   if (profileError) throw profileError
 }
 
+const { error: deleteJobRunError } = await supabase
+  .from('system_job_runs')
+  .delete()
+  .eq('job_name', 'github-daily-maintenance')
+if (deleteJobRunError) throw deleteJobRunError
+
+const { error: jobRunError } = await supabase.from('system_job_runs').insert({
+  job_name: 'github-daily-maintenance',
+  status: 'success',
+  details: { source: 'local-e2e-seed' },
+})
+if (jobRunError) throw jobRunError
+
 console.log('Seeded local E2E users.')

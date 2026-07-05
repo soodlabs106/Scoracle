@@ -69,7 +69,6 @@ export function ChatMessageList({
     </div>
   )
 }
-
 function ChatNotice({ children }: { children: string }) {
   return (
     <p className="flex min-h-48 items-center justify-center text-center text-sm font-semibold text-[#777D98]">
@@ -77,4 +76,3 @@ function ChatNotice({ children }: { children: string }) {
     </p>
   )
 }
-
