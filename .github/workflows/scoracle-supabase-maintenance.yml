@@ -28,7 +28,7 @@ jobs:
       TRIGGER: ${{ github.event_name }}
     steps:
       - name: Check out maintenance script
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
