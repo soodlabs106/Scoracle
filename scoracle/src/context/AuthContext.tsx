@@ -169,6 +169,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [applySession])
 
   const checkUsernameAvailability = useCallback(async (username: string) => {
+    if (!state.user) {
+      throw new Error('Username availability can only be checked after signing in.')
+    }
+
     const { data: isAvailable, error: usernameError } = await supabase.rpc(
       'is_username_available',
       { candidate_username: username.trim() },
@@ -179,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return Boolean(isAvailable)
-  }, [])
+  }, [state.user])
 
   const signUp = useCallback(async ({ email, firstName, lastName, username, password }: SignupInput) => {
     const trimmedUsername = username.trim()
@@ -189,12 +193,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!trimmedFirstName || !trimmedLastName) {
       throw new Error('First name and last name are required.')
-    }
-
-    const isAvailable = await checkUsernameAvailability(trimmedUsername)
-
-    if (!isAvailable) {
-      throw new Error('That username is already taken.')
     }
 
     const { data, error } = await supabase.auth.signUp({
@@ -211,20 +209,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     if (error) {
-      throw new Error(toFriendlyAuthError(error.message))
-    }
-
-    if (data.user && data.user.identities?.length === 0) {
-      throw new Error('An account with this email already exists.')
+      throw new Error(toFriendlySignupError(error.message))
     }
 
     if (data.session) {
-      await applySession(data.session, 'Account created.')
-      return 'Account created.'
+      await supabase.auth.signOut()
     }
 
-    return 'Account created. Check your email to confirm your account before logging in.'
-  }, [applySession, checkUsernameAvailability])
+    return 'Check your email for the next step if the signup details can be used.'
+  }, [])
 
   const signIn = useCallback(
     async (email: string, password: string) => {
@@ -653,4 +646,19 @@ function toFriendlyAuthError(message: string) {
   }
 
   return message
+}
+
+function toFriendlySignupError(message: string) {
+  const normalized = message.toLowerCase()
+
+  if (
+    normalized.includes('password') ||
+    normalized.includes('weak password') ||
+    normalized.includes('over_email_send_rate_limit') ||
+    normalized.includes('captcha')
+  ) {
+    return toFriendlyAuthError(message)
+  }
+
+  return 'Check your email for the next step if the signup details can be used.'
 }

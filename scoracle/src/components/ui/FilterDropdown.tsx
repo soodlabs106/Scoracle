@@ -72,8 +72,7 @@ export function FilterDropdown({
         type="button"
         onClick={() => onOpenChange(!isOpen)}
         disabled={disabled}
-        className="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-[#DCD5FF] bg-white px-2 text-base font-semibold leading-5 text-[#12163F] shadow-sm focus:border-[#5B3FFF] focus:outline-none focus:ring-2 focus:ring-[#5B3FFF]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3"
-        style={{ fontSize: '16px', fontWeight: 500 }}
+        className="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-[#DCD5FF] bg-white px-2 text-base font-medium leading-5 text-[#12163F] shadow-sm focus:border-[#5B3FFF] focus:outline-none focus:ring-2 focus:ring-[#5B3FFF]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3"
         aria-expanded={isOpen}
       >
         {renderSelected ? (
