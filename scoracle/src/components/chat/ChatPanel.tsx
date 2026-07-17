@@ -19,7 +19,7 @@ export function ChatPanel({
   })
 
   return (
-    <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-[#DCD5FF] bg-white shadow-[0_12px_32px_rgba(18,22,63,0.08)] lg:h-[calc(100vh-40px)] lg:max-h-[780px]">
+    <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-[#DCD5FF] bg-white shadow-[0_12px_32px_rgba(18,22,63,0.08)] lg:max-h-[640px]">
       <button
         type="button"
         onClick={() => setIsMobileOpen((current) => !current)}

@@ -30,7 +30,12 @@ import {
   type PredictionUpsert,
 } from './features/predictions/predictionRepository'
 import {
-  fetchHomeData,
+  getDefaultPredictionMatchweek,
+  getFixtureLockInfo,
+  getPredictionDraftKey,
+  getPredictionGroupLockInfo,
+} from './features/predictions/fixtureLocking'
+import {
   mockHomeData,
   type Fixture,
   type HomeData,
@@ -48,6 +53,12 @@ import {
   getPredictionPoints,
   type PredictionCloseness,
 } from './utils/predictionScoring'
+import {
+  formatCompactMatchweekLabel,
+  formatDropdownMatchweekLabel,
+  formatMatchweekLabel,
+  formatRoundLabel,
+} from './utils/matchweekLabels'
 
 const IST_FORMATTER = new Intl.DateTimeFormat('en-IN', {
   timeZone: 'Asia/Kolkata',
@@ -80,8 +91,7 @@ type TeamResult = {
 function App() {
   const { profile, user } = useAuth()
   const homeDataQuery = useHomeDataQuery()
-  const [homeDataOverride, setHomeDataOverride] = useState<HomeData | null>(null)
-  const homeData = homeDataOverride ?? homeDataQuery.data ?? mockHomeData
+  const homeData = homeDataQuery.data ?? mockHomeData
   const isLoading = homeDataQuery.isLoading && !homeDataQuery.data
   const dataNotice = homeDataQuery.isError
     ? 'Using local fallback data until the backend is running'
@@ -151,7 +161,6 @@ function App() {
   const matchweeks = useMemo(
     () =>
       Array.from(new Set(homeData.fixtures.map((fixture) => fixture.matchweek)))
-        .filter(Boolean)
         .sort((a, b) => a - b),
     [homeData.fixtures],
   )
@@ -224,9 +233,19 @@ function App() {
         ),
     [homeData.fixtures, predictionMatchweekNumber],
   )
-  const predictionLockInfo = useMemo(
-    () => getMatchweekLockInfo(predictionFixtures),
+  const predictionFixtureLockInfoById = useMemo(
+    () =>
+      new Map(
+        predictionFixtures.map((fixture) => [
+          fixture.id,
+          getFixtureLockInfo(fixture),
+        ]),
+      ),
     [predictionFixtures],
+  )
+  const predictionLockInfo = useMemo(
+    () => getPredictionGroupLockInfo(predictionFixtures, predictionFixtureLockInfoById),
+    [predictionFixtureLockInfoById, predictionFixtures],
   )
 
   const scopedLeaderboards = useMemo(
@@ -322,9 +341,7 @@ function App() {
 
           for (const fixture of predictionFixtures) {
             const draftKey = getPredictionDraftKey(fixture)
-            const prediction = fixture.dbId
-              ? nextPredictions.get(fixture.dbId)
-              : undefined
+            const prediction = nextPredictions.get(draftKey)
             nextDrafts[draftKey] = prediction
               ? {
                   home: prediction.predicted_home_score.toString(),
@@ -362,9 +379,7 @@ function App() {
 
         for (const fixture of predictionFixtures) {
           const draftKey = getPredictionDraftKey(fixture)
-          const prediction = fixture.dbId
-            ? nextPredictions.get(fixture.dbId)
-            : undefined
+          const prediction = nextPredictions.get(draftKey)
           nextDrafts[draftKey] = prediction
             ? {
                 home: prediction.predicted_home_score.toString(),
@@ -431,44 +446,23 @@ function App() {
       return
     }
 
-    if (predictionLockInfo.isLocked) {
+    if (predictionLockInfo.allLocked) {
       setPredictionMessage({
         tone: 'error',
-        text: 'Predictions locked for this match week.',
+        text: 'Predictions are locked for this selection.',
       })
       return
     }
 
     let fixturesForSave = predictionFixtures
-    const hasUnsyncedDirtyFixture = fixturesForSave.some(
-      (fixture) =>
-        !fixture.dbId && dirtyFixtureIds.has(getPredictionDraftKey(fixture)),
-    )
-
-    if (hasUnsyncedDirtyFixture) {
-      setPredictionMessage({
-        tone: 'info',
-        text: 'Refreshing fixture sync before saving...',
-      })
-
-      try {
-        const freshHomeData = await fetchHomeData()
-        setHomeDataOverride(freshHomeData)
-        fixturesForSave = freshHomeData.fixtures.filter(
-          (fixture) => fixture.matchweek === predictionMatchweekNumber,
-        )
-      } catch {
-        setPredictionMessage({
-          tone: 'error',
-          text: 'Fixture sync is still loading. Try again in a moment.',
-        })
-        return
-      }
-    }
 
     const changedFixtures = fixturesForSave.filter(
       (fixture) => dirtyFixtureIds.has(getPredictionDraftKey(fixture)),
     )
+    const unlockedChangedFixtures = changedFixtures.filter((fixture) => {
+      const lockInfo = predictionFixtureLockInfoById.get(fixture.id)
+      return !lockInfo?.isLocked
+    })
 
     if (changedFixtures.length === 0) {
       setPredictionMessage({
@@ -478,17 +472,17 @@ function App() {
       return
     }
 
+    if (unlockedChangedFixtures.length === 0) {
+      setPredictionMessage({
+        tone: 'error',
+        text: 'Selected fixtures are locked.',
+      })
+      return
+    }
+
     const rows: PredictionUpsert[] = []
 
-    for (const fixture of changedFixtures) {
-      if (!fixture.dbId) {
-        setPredictionMessage({
-          tone: 'error',
-          text: 'Fixture sync is still loading. Try again in a moment.',
-        })
-        return
-      }
-
+    for (const fixture of unlockedChangedFixtures) {
       const draft = predictionDrafts[getPredictionDraftKey(fixture)]
 
       if (!draft?.home || !draft.away) {
@@ -526,7 +520,7 @@ function App() {
 
       rows.push({
         user_id: user.id,
-        fixture_id: fixture.dbId,
+        fixture_id: getPredictionDraftKey(fixture),
         match_week: fixture.matchweek,
         predicted_home_score: predictedHome,
         predicted_away_score: predictedAway,
@@ -571,10 +565,12 @@ function App() {
       return
     }
 
-    if (predictionLockInfo.isLocked) {
+    const lockInfo = predictionFixtureLockInfoById.get(fixture.id)
+
+    if (lockInfo?.isLocked) {
       setPredictionMessage({
         tone: 'error',
-        text: 'Predictions locked for this match week.',
+        text: 'Predictions are locked for this fixture.',
       })
       return
     }
@@ -693,11 +689,11 @@ function App() {
                 <FilterDropdown
                   label="Match week"
                   selectedValue={activePredictionMatchweek}
-                  selectedLabel={`Match week ${activePredictionMatchweek}`}
+                  selectedLabel={formatMatchweekLabel(predictionMatchweekNumber)}
                   isOpen={isPredictionMatchweekMenuOpen}
                   options={matchweeks.map((matchweek) => ({
                     value: matchweek.toString(),
-                    label: `Match week ${matchweek}`,
+                    label: formatDropdownMatchweekLabel(matchweek),
                   }))}
                   onOpenChange={(nextIsOpen) => {
                     setIsPredictionMatchweekMenuOpen(nextIsOpen)
@@ -714,14 +710,20 @@ function App() {
                 </div>
                 <span
                   className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-semibold ${
-                    predictionLockInfo.isLocked
+                    predictionLockInfo.allLocked
                     ? 'border-[#FF2D9A] bg-[#FFF0F8] text-[#12163F]'
-                    : 'border-[#18D6C9] bg-[#E9FFFC] text-[#12163F]'
+                    : predictionLockInfo.hasLockedFixtures
+                      ? 'border-[#F59E0B] bg-[#FFF7E8] text-[#12163F]'
+                      : 'border-[#18D6C9] bg-[#E9FFFC] text-[#12163F]'
                   }`}
                 >
                   <LockKeyhole className="h-4 w-4" />
                   <span className="hidden sm:inline">
-                    {predictionLockInfo.isLocked ? 'Locked' : 'Open'}
+                    {predictionLockInfo.allLocked
+                      ? 'Locked'
+                      : predictionLockInfo.hasLockedFixtures
+                        ? 'Mixed'
+                        : 'Open'}
                   </span>
                 </span>
                 <button
@@ -731,7 +733,7 @@ function App() {
                   disabled={
                     isSavingPredictions ||
                     isPredictionsLoading ||
-                    predictionLockInfo.isLocked
+                    predictionLockInfo.allLocked
                   }
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-[#18D6C9] to-[#5B3FFF] px-3 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(91,63,255,0.18)] transition-all duration-200 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4"
                 >
@@ -766,14 +768,16 @@ function App() {
                   label="MW"
                   selectedValue={selectedMatchweek}
                   selectedLabel={
-                    selectedMatchweek === 'all' ? 'All' : `MW ${selectedMatchweek}`
+                    selectedMatchweek === 'all'
+                      ? 'All'
+                      : formatDropdownMatchweekLabel(Number(selectedMatchweek))
                   }
                   isOpen={isMatchweekMenuOpen}
                   options={[
                     { value: 'all', label: 'All' },
                     ...matchweeks.map((matchweek) => ({
                       value: matchweek.toString(),
-                      label: `MW ${matchweek}`,
+                      label: formatDropdownMatchweekLabel(matchweek),
                     })),
                   ]}
                   onOpenChange={(nextIsOpen) => {
@@ -847,12 +851,12 @@ function App() {
                     teamsById={teamsById}
                     predictionMode={isPredictionMode}
                     prediction={
-                      fixture.dbId
-                        ? predictionsByFixtureId.get(fixture.dbId)
-                        : undefined
+                      predictionsByFixtureId.get(getPredictionDraftKey(fixture))
                     }
                     draft={predictionDrafts[draftKey]}
-                    isMatchweekLocked={predictionLockInfo.isLocked}
+                    isMatchweekLocked={
+                      predictionFixtureLockInfoById.get(fixture.id)?.isLocked ?? false
+                    }
                     deletingPredictionId={deletingPredictionId}
                     accentClass={fixtureAccentClass(index)}
                     onPredictionChange={(side, value) =>
@@ -1146,7 +1150,7 @@ function FixtureCard({
         }`}
       >
         <span className="absolute right-3 top-3 z-10 rounded-full bg-[#E9FFFC] px-3 py-1 text-xs font-bold uppercase text-[#2F6BFF] sm:right-4 sm:top-4">
-          MW {fixture.matchweek}
+          {formatCompactMatchweekLabel(fixture.matchweek)}
         </span>
         <div className="space-y-3 pr-0 pt-8 xl:pt-1">
           <FixtureTeamRow
@@ -1182,7 +1186,7 @@ function FixtureCard({
           }`}
         >
           <Fact label="Venue" value={fixture.venue} />
-          <Fact label="Round" value={`MW ${fixture.matchweek}`} />
+          <Fact label="Round" value={formatRoundLabel(fixture.matchweek)} />
           <Fact label="Status" value={fixture.status} />
         </div>
 
@@ -1892,71 +1896,6 @@ function resultBadgeClass(result: TeamResult['result']) {
   }
 
   return 'bg-[#FDE7E7] text-[#8a2626]'
-}
-
-function getPredictionDraftKey(fixture: Fixture) {
-  return fixture.dbId ?? `provider:${fixture.providerFixtureId ?? fixture.id}`
-}
-
-function getMatchweekLockInfo(fixtures: Fixture[]) {
-  if (fixtures.length === 0) {
-    return { isLocked: true, lockAt: null as Date | null }
-  }
-
-  if (
-    fixtures.every(
-      (fixture) => fixture.homeScore !== null && fixture.awayScore !== null,
-    )
-  ) {
-    return { isLocked: true, lockAt: new Date() }
-  }
-
-  const firstKickoff = Math.min(
-    ...fixtures.map((fixture) => new Date(fixture.kickoffUtc).getTime()),
-  )
-  const lockAt = new Date(firstKickoff - 24 * 60 * 60 * 1000)
-
-  return {
-    isLocked: Date.now() >= lockAt.getTime(),
-    lockAt,
-  }
-}
-
-function getDefaultPredictionMatchweek(fixtures: Fixture[]) {
-  const grouped = new Map<number, Fixture[]>()
-
-  for (const fixture of fixtures) {
-    grouped.set(fixture.matchweek, [
-      ...(grouped.get(fixture.matchweek) ?? []),
-      fixture,
-    ])
-  }
-
-  const weeks = Array.from(grouped.entries())
-    .map(([matchweek, weekFixtures]) => {
-      const firstKickoff = Math.min(
-        ...weekFixtures.map((fixture) => new Date(fixture.kickoffUtc).getTime()),
-      )
-      const lockAt = firstKickoff - 24 * 60 * 60 * 1000
-
-      return { matchweek, firstKickoff, lockAt }
-    })
-    .sort((first, second) => first.firstKickoff - second.firstKickoff)
-
-  const now = Date.now()
-  const nextUnlocked = weeks.find((week) => now < week.lockAt)
-
-  if (nextUnlocked) {
-    return nextUnlocked.matchweek
-  }
-
-  const nextNotStarted = weeks.find((week) => now < week.firstKickoff)
-
-  if (nextNotStarted) {
-    return nextNotStarted.matchweek
-  }
-
-  return weeks.at(-1)?.matchweek ?? 1
 }
 
 function formatKickoff(kickoffUtc: string) {
