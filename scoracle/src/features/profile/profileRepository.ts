@@ -76,25 +76,15 @@ async function fetchPredictionHistoryFromTables(): Promise<PredictionHistoryRpcR
   if (teamError) throw teamError
 
   const teamsById = new Map((teams ?? []).map((row) => [row.id, row]))
-  const lockByMatchweek = new Map<number, string>()
-
-  for (const fixture of fixtureRows) {
-    const currentKickoff = lockByMatchweek.get(fixture.matchweek)
-    if (!currentKickoff || fixture.kickoff_utc < currentKickoff) {
-      lockByMatchweek.set(fixture.matchweek, fixture.kickoff_utc)
-    }
-  }
-
   return predictions.flatMap((prediction) => {
     const fixture = fixturesById.get(prediction.fixture_id)
     if (!fixture) return []
 
     const homeTeam = teamsById.get(fixture.home_team_id)
     const awayTeam = teamsById.get(fixture.away_team_id)
-    const firstKickoff = lockByMatchweek.get(fixture.matchweek)
-    const lockAt = firstKickoff
-      ? new Date(new Date(firstKickoff).getTime() - 24 * 60 * 60 * 1000).toISOString()
-      : fixture.kickoff_utc
+    const lockAt = new Date(
+      new Date(fixture.kickoff_utc).getTime() - 60 * 60 * 1000,
+    ).toISOString()
 
     return [{
       prediction_id: prediction.id,

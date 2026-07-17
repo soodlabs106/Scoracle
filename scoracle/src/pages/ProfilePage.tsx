@@ -18,7 +18,18 @@ import { FilterDropdown } from '../components/ui/FilterDropdown'
 import { useAuth } from '../context/useAuth'
 import { mockHomeData, type Team } from '../data/homeData'
 import { useHomeDataQuery } from '../features/home/useHomeDataQuery'
-import { removePrediction } from '../features/predictions/predictionRepository'
+import {
+  listLocalPredictionsForUser,
+  removePrediction,
+} from '../features/predictions/predictionRepository'
+import {
+  compareHistoryItems,
+  getFixturePredictionKey,
+  getProfileFixtureLockAt,
+  isHistoryItemLocked,
+  type FixtureHistoryRow,
+  type HistoryItem,
+} from '../features/profile/historyHelpers'
 import {
   fetchMyPredictionHistory,
   removeProfileAvatar,
@@ -29,11 +40,14 @@ import {
   fetchRankTimeline,
 } from '../data/leaderboard'
 import { fetchSimulatedPredictionHistory } from '../data/predictionSimulation'
-import type { PredictionRow } from '../types/predictions'
 import {
   getPredictionClosenessDisplay,
   type PredictionCloseness,
 } from '../utils/predictionScoring'
+import {
+  formatDropdownMatchweekLabel,
+  formatMatchweekLabel,
+} from '../utils/matchweekLabels'
 
 const MAX_AVATAR_SOURCE_BYTES = 3 * 1024 * 1024
 const MAX_AVATAR_DIMENSION = 512
@@ -61,26 +75,6 @@ const TEAM_CODES_BY_NORMALIZED_NAME: Record<string, string> = {
   nottinghamforest: 'NFO',
   sunderland: 'SUN',
   tottenhamhotspur: 'TOT',
-}
-
-type FixtureHistoryRow = {
-  id: string
-  matchweek: number
-  kickoffUtc: string
-  homeScore: number | null
-  awayScore: number | null
-}
-
-type HistoryItem = {
-  prediction: PredictionRow
-  fixture?: FixtureHistoryRow
-  homeTeam?: string
-  awayTeam?: string
-  homeTeamCode?: string
-  awayTeamCode?: string
-  homeTeamCrestUrl?: string
-  awayTeamCrestUrl?: string
-  matchweekLockAt?: string
 }
 
 export function ProfilePage() {
@@ -206,8 +200,55 @@ export function ProfilePage() {
           matchweekLockAt: row.matchweek_lock_at,
         }))
 
+        const fixtureByPredictionKey = new Map(
+          homeData.fixtures.map((fixture) => [getFixturePredictionKey(fixture), fixture]),
+        )
+        const remotePredictionKeys = new Set(
+          rows.map((row) => row.fixture?.id ?? row.prediction.fixture_id),
+        )
+        const localRows = listLocalPredictionsForUser(currentUser.id)
+          .filter((prediction) => !remotePredictionKeys.has(prediction.fixture_id))
+          .map((prediction): HistoryItem | null => {
+            const fixture = fixtureByPredictionKey.get(prediction.fixture_id)
+
+            if (!fixture) {
+              return null
+            }
+
+            const matchweekLockAt = getProfileFixtureLockAt(fixture)
+
+            return {
+              prediction,
+              fixture: {
+                id: prediction.fixture_id,
+                matchweek: fixture.matchweek,
+                kickoffUtc: fixture.kickoffUtc,
+                homeScore: fixture.homeScore,
+                awayScore: fixture.awayScore,
+              },
+              homeTeam: homeData.teams.find((team) => team.id === fixture.homeTeamId)?.name,
+              awayTeam: homeData.teams.find((team) => team.id === fixture.awayTeamId)?.name,
+              homeTeamCode:
+                homeData.teams.find((team) => team.id === fixture.homeTeamId)?.teamCode ??
+                getTeamCodeFallback(
+                  homeData.teams.find((team) => team.id === fixture.homeTeamId)?.name,
+                ),
+              awayTeamCode:
+                homeData.teams.find((team) => team.id === fixture.awayTeamId)?.teamCode ??
+                getTeamCodeFallback(
+                  homeData.teams.find((team) => team.id === fixture.awayTeamId)?.name,
+                ),
+              homeTeamCrestUrl:
+                homeData.teams.find((team) => team.id === fixture.homeTeamId)?.crestUrl,
+              awayTeamCrestUrl:
+                homeData.teams.find((team) => team.id === fixture.awayTeamId)?.crestUrl,
+              matchweekLockAt,
+            }
+          })
+          .filter((item): item is HistoryItem => item !== null)
+
         if (isMounted) {
-          applyHistory(rows)
+          applyHistory([...rows, ...localRows].sort(compareHistoryItems))
         }
       } catch (caughtError) {
         if (isMounted) {
@@ -456,7 +497,7 @@ export function ProfilePage() {
 
   function handleInitiateDeletePrediction(item: HistoryItem) {
     if (
-      isMatchweekLocked(item.prediction.match_week, history) ||
+      isHistoryItemLocked(item) ||
       hasActualResult(item.fixture)
     ) {
       setError('Predictions are locked for that match week.')
@@ -771,14 +812,14 @@ export function ProfilePage() {
                   selectedLabel={
                     selectedHistoryMatchweek === 'all'
                       ? 'All'
-                      : `Match week ${selectedHistoryMatchweek}`
+                      : formatDropdownMatchweekLabel(Number(selectedHistoryMatchweek))
                   }
                   isOpen={isHistoryMatchweekMenuOpen}
                   options={[
                     { value: 'all', label: 'All' },
                     ...historyMatchweeks.map((matchweek) => ({
                       value: matchweek.toString(),
-                      label: `Match week ${matchweek}`,
+                      label: formatDropdownMatchweekLabel(matchweek),
                     })),
                   ]}
                   onOpenChange={setIsHistoryMatchweekMenuOpen}
@@ -820,7 +861,7 @@ export function ProfilePage() {
                       aria-expanded={isExpanded}
                     >
                       <span className="text-sm font-bold uppercase text-[#5B3FFF]">
-                        Match Week {matchWeek}
+                        {formatMatchweekLabel(matchWeek)}
                       </span>
                       <span className="inline-flex items-center gap-2 text-sm font-bold text-[#333333]">
                         Rank: {formatRank(matchweekRanks[matchWeek] ?? null)}
@@ -866,10 +907,7 @@ export function ProfilePage() {
                             )
                             const isPendingResult = !hasActualResult(item.fixture)
                             const isLocked =
-                              isMatchweekLocked(
-                                item.prediction.match_week,
-                                history,
-                              ) || hasActualResult(item.fixture)
+                              isHistoryItemLocked(item) || hasActualResult(item.fixture)
 
                             return (
                               <tr key={item.prediction.id}>
@@ -954,8 +992,16 @@ export function ProfilePage() {
 
       {deleteConfirmationItem ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="rounded-lg border border-[#DADADA] bg-white p-6 shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1)] max-w-sm">
-            <h3 className="text-lg font-semibold text-[#333333]">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-prediction-title"
+            className="rounded-lg border border-[#DADADA] bg-white p-6 shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1)] max-w-sm"
+          >
+            <h3
+              id="delete-prediction-title"
+              className="text-lg font-semibold text-[#333333]"
+            >
               Delete Prediction?
             </h3>
             <p className="mt-2 text-sm text-[#5f6664]">
@@ -1176,22 +1222,6 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
       />
     </label>
   )
-}
-
-function isMatchweekLocked(matchweek: number, history: HistoryItem[]) {
-  const lockSource = history.find(
-    (item) =>
-      item.prediction.match_week === matchweek && Boolean(item.matchweekLockAt),
-  )?.matchweekLockAt
-
-  if (!lockSource) {
-    return true
-  }
-
-  const firstKickoff = new Date(lockSource).getTime()
-  const lockAt = firstKickoff - 24 * 60 * 60 * 1000
-
-  return Date.now() >= lockAt
 }
 
 async function prepareAvatarUpload(file: File) {

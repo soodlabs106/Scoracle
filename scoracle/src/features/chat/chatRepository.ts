@@ -4,7 +4,7 @@ import type { Tables } from '../../types/database.generated'
 
 export const CHAT_MESSAGE_MAX_LENGTH = 500
 export const CHAT_MESSAGE_LIMIT = 50
-export const CHAT_RETENTION_DAYS = 14
+export const CHAT_RETENTION_DAYS = 30
 
 export type ChatRoom = Tables<'chat_rooms'>
 export type ChatMessageRow = Tables<'chat_messages'>

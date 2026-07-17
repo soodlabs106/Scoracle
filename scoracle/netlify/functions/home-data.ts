@@ -10,25 +10,33 @@ import type { NetlifyFunctionEvent } from '../core/types.ts'
 const PULSE_BASE_URL = 'https://footballapi.pulselive.com/football'
 const DEFAULT_COMP_SEASON_ID = '841'
 const DEFAULT_LEADERBOARD_FALLBACK_COMP_SEASON_ID = '777'
+const PRESEASON_COMP_SEASON_ID = '831'
+const MANCHESTER_UNITED_TEAM_ID = '12'
+const PRESEASON_MATCHWEEK = 0
 const CACHE_TTL_MS = 1000 * 60 * 30
 const FALLBACK_CRESTS_BY_PULSE_ID = new Map([
   ['1', '/team-crests/1.webp'],
   ['2', '/team-crests/2.webp'],
+  ['48', 'https://r2.thesportsdb.com/images/media/team/badge/0ulh3q1719984315.png'],
   ['127', '/team-crests/127.webp'],
   ['130', '/team-crests/130.webp'],
   ['131', '/team-crests/131.webp'],
+  ['64', 'https://r2.thesportsdb.com/images/media/team/badge/wvspur1448806617.png'],
+  ['67', 'https://r2.thesportsdb.com/images/media/team/badge/rwqrrq1473504808.png'],
   ['4', '/team-crests/4.webp'],
   ['5', '/team-crests/5.webp'],
   ['6', '/team-crests/6.webp'],
   ['7', '/team-crests/7.webp'],
   ['34', '/team-crests/34.webp'],
   ['41', '/team-crests/41.webp'],
+  ['371', 'https://r2.thesportsdb.com/images/media/team/badge/z483ps1764866361.png'],
   ['8', '/team-crests/8.webp'],
   ['9', '/team-crests/9.webp'],
   ['10', '/team-crests/10.webp'],
   ['11', '/team-crests/11.webp'],
   ['12', '/team-crests/12.webp'],
   ['23', '/team-crests/23.webp'],
+  ['195', 'https://r2.thesportsdb.com/images/media/team/badge/ezpymt1675092551.png'],
   ['15', '/team-crests/15.webp'],
   ['29', '/team-crests/29.webp'],
   ['21', '/team-crests/21.webp'],
@@ -41,15 +49,20 @@ const FALLBACK_PLAYER_PHOTOS_BY_NAME = new Map([
 const FALLBACK_TEAM_CODES_BY_PULSE_ID = new Map([
   ['1', 'ARS'],
   ['2', 'AVL'],
+  ['48', 'ATM'],
   ['127', 'BOU'],
   ['130', 'BRE'],
   ['131', 'BRI'],
+  ['64', 'ACM'],
+  ['67', 'PSG'],
   ['4', 'CHE'],
   ['5', 'COV'],
   ['6', 'CRY'],
   ['7', 'EVE'],
   ['34', 'FUL'],
   ['41', 'HUL'],
+  ['195', 'WRX'],
+  ['371', 'RSB'],
   ['8', 'IPS'],
   ['9', 'LEE'],
   ['10', 'LIV'],
@@ -86,7 +99,7 @@ export async function handler(event: NetlifyFunctionEvent) {
   const season = process.env.SCORACLE_SEASON ?? '2026'
   const compSeasonId =
     process.env.PULSE_COMP_SEASON_ID ?? DEFAULT_COMP_SEASON_ID
-  const cacheKey = `home-data-v4:${season}:${compSeasonId}`
+  const cacheKey = `home-data-v5:${season}:${compSeasonId}`
   const forceRefresh = isAuthorizedRefresh(event)
 
   try {
@@ -129,18 +142,26 @@ export async function handler(event: NetlifyFunctionEvent) {
       }
     }
 
-    const [standingsResponse, fixturesResponse] = await Promise.all([
+    const [standingsResponse, fixturesResponse, preseasonFixturesResponse] = await Promise.all([
       fetchJson(
         `${PULSE_BASE_URL}/standings?comps=1&compSeasons=${compSeasonId}&page=0&pageSize=20`,
       ),
       fetchJson(
         `${PULSE_BASE_URL}/fixtures?comps=1&compSeasons=${compSeasonId}&page=0&pageSize=380&sort=asc`,
       ),
+      fetchJson(
+        `${PULSE_BASE_URL}/fixtures?teams=${MANCHESTER_UNITED_TEAM_ID}&compSeasons=${PRESEASON_COMP_SEASON_ID}&page=0&pageSize=20&sort=asc`,
+      ),
     ])
 
     const teamsById = new Map()
     const standings = normalizeStandings(standingsResponse, teamsById)
-    const fixtures = normalizeFixtures(fixturesResponse, teamsById)
+    const fixtures = mergeFixtures(
+      normalizeFixtures(fixturesResponse, teamsById),
+      normalizeFixtures(preseasonFixturesResponse, teamsById, {
+        matchweekOverride: PRESEASON_MATCHWEEK,
+      }),
+    )
     const teams = Array.from(teamsById.values())
       .map((team) => ({
         ...team,
@@ -175,6 +196,7 @@ export async function handler(event: NetlifyFunctionEvent) {
       lastUpdated: new Date().toISOString(),
       sources: [
         'Premier League Pulse',
+        'Premier League Pulse preseason friendlies',
         'Local static image cache',
         process.env.API_FOOTBALL_KEY ? 'API-Football configured as fallback' : '',
       ].filter(Boolean),
@@ -323,8 +345,13 @@ function normalizeStandings(response, teamsById) {
   })
 }
 
-function normalizeFixtures(response, teamsById) {
+function normalizeFixtures(
+  response,
+  teamsById,
+  options: { matchweekOverride?: number } = {},
+) {
   const fixtures = response?.content ?? []
+  const matchweekOverride = options.matchweekOverride
 
   return fixtures
     .map((fixture) => {
@@ -336,8 +363,8 @@ function normalizeFixtures(response, teamsById) {
 
       return {
         id: String(fixture.id),
-        matchweek: Number(fixture.gameweek?.gameweek ?? 0),
-        kickoffUtc: new Date(Number(fixture.kickoff?.millis ?? 0)).toISOString(),
+        matchweek: Number(matchweekOverride ?? fixture.gameweek?.gameweek ?? 0),
+        kickoffUtc: new Date(getFixtureKickoffMillis(fixture)).toISOString(),
         status: normalizeStatus(fixture.status),
         venue: [fixture.ground?.name, fixture.ground?.city]
           .filter(Boolean)
@@ -356,6 +383,22 @@ function normalizeFixtures(response, teamsById) {
         new Date(first.kickoffUtc).getTime() -
         new Date(second.kickoffUtc).getTime(),
     )
+}
+
+function mergeFixtures(...fixtureGroups) {
+  const fixturesById = new Map()
+
+  for (const group of fixtureGroups) {
+    for (const fixture of group) {
+      fixturesById.set(fixture.id, fixture)
+    }
+  }
+
+  return Array.from(fixturesById.values()).sort(
+    (first, second) =>
+      new Date(first.kickoffUtc).getTime() -
+      new Date(second.kickoffUtc).getTime(),
+  )
 }
 
 function normalizePulseTeam(team) {
@@ -381,6 +424,14 @@ function normalizePulseTeam(team) {
     shortName: team?.shortName ?? club.shortName ?? team?.name ?? 'TBC',
     teamCode,
   }
+}
+
+function getFixtureKickoffMillis(fixture) {
+  const kickoffMillis = Number(
+    fixture.kickoff?.millis ?? fixture.provisionalKickoff?.millis ?? 0,
+  )
+
+  return kickoffMillis > 0 ? kickoffMillis : Date.now()
 }
 
 async function fetchPulseLeadersWithFallback(statKey, compSeasonId, teamsById) {

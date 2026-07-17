@@ -23,6 +23,10 @@ import type {
   MatchWeekLeaderboardRow,
   RankMovementRow,
 } from '../types/leaderboard'
+import {
+  formatCompactMatchweekLabel,
+  formatDropdownMatchweekLabel,
+} from '../utils/matchweekLabels'
 
 type ActiveTab = 'overall' | 'matchweek'
 
@@ -223,7 +227,9 @@ export function LeaderboardPage() {
                 label="Match week"
                 selectedValue={selectedMatchWeek?.toString() ?? ''}
                 selectedLabel={
-                  selectedMatchWeek === null ? 'No scored weeks' : `MW ${selectedMatchWeek}`
+                  selectedMatchWeek === null
+                    ? 'No scored weeks'
+                    : formatDropdownMatchweekLabel(selectedMatchWeek)
                 }
                 isOpen={isMatchWeekMenuOpen}
                 disabled={scoredMatchWeeks.length === 0}
@@ -232,7 +238,7 @@ export function LeaderboardPage() {
                     ? [{ value: '', label: 'No scored weeks', disabled: true }]
                     : scoredMatchWeeks.map((matchWeek) => ({
                         value: matchWeek.toString(),
-                        label: `MW ${matchWeek}`,
+                        label: formatDropdownMatchweekLabel(matchWeek),
                       }))
                 }
                 onOpenChange={setIsMatchWeekMenuOpen}
@@ -280,7 +286,11 @@ export function LeaderboardPage() {
         ) : (
           <>
             <UserSummary
-              label={`Your MW ${selectedMatchWeek ?? '-'} rank`}
+              label={
+                selectedMatchWeek === null
+                  ? 'Your rank'
+                  : `Your ${formatCompactMatchweekLabel(selectedMatchWeek)} rank`
+              }
               row={currentWeeklyRow}
               rows={weeklyRows}
               pointsLabel="Weekly pts"
@@ -473,7 +483,7 @@ function RankTimelineChart({
                     textAnchor="middle"
                     className="fill-[#5f6664] text-xs font-bold"
                   >
-                    MW {matchWeek}
+                    {formatCompactMatchweekLabel(matchWeek)}
                   </text>
                 </g>
               )
@@ -532,7 +542,7 @@ function RankTimelineChart({
                     transform: 'translate(-50%, -50%)',
                     borderColor: colors[userIndex % colors.length],
                   }}
-                  title={`${user.username}, MW ${matchWeek}, rank ${point.row.current_rank}`}
+                  title={`${user.username}, ${formatCompactMatchweekLabel(matchWeek)}, rank ${point.row.current_rank}`}
                 >
                   <ChartAvatar user={user} />
                 </div>

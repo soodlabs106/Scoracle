@@ -1,4 +1,5 @@
 import { HomeDataSchema } from '../../shared/contracts/homeData'
+import { supabase } from '../lib/supabaseClient'
 
 export type Team = {
   id: string
@@ -224,10 +225,67 @@ export const premierLeagueTeams: Team[] = [
   },
 ]
 
+const preseasonTeams: Team[] = [
+  {
+    id: '195',
+    name: 'Wrexham',
+    shortName: 'Wrexham',
+    teamCode: 'WRX',
+    crestUrl:
+      'https://r2.thesportsdb.com/images/media/team/badge/ezpymt1675092551.png',
+  },
+  {
+    id: '371',
+    name: 'Rosenborg',
+    shortName: 'Rosenborg',
+    teamCode: 'RSB',
+    crestUrl:
+      'https://r2.thesportsdb.com/images/media/team/badge/z483ps1764866361.png',
+  },
+  {
+    id: '48',
+    name: 'Atletico Madrid',
+    shortName: 'Atletico',
+    teamCode: 'ATM',
+    crestUrl:
+      'https://r2.thesportsdb.com/images/media/team/badge/0ulh3q1719984315.png',
+  },
+  {
+    id: '67',
+    name: 'Paris Saint Germain',
+    shortName: 'PSG',
+    teamCode: 'PSG',
+    crestUrl:
+      'https://r2.thesportsdb.com/images/media/team/badge/rwqrrq1473504808.png',
+  },
+  {
+    id: '64',
+    name: 'Milan',
+    shortName: 'Milan',
+    teamCode: 'ACM',
+    crestUrl:
+      'https://r2.thesportsdb.com/images/media/team/badge/wvspur1448806617.png',
+  },
+]
+
+const TEAM_CODE_FALLBACKS = new Map(
+  [...premierLeagueTeams, ...preseasonTeams].map((team) => [team.id, team.teamCode]),
+)
+const TEAM_CREST_FALLBACKS = new Map(
+  [...premierLeagueTeams, ...preseasonTeams]
+    .filter((team) => Boolean(team.crestUrl))
+    .map((team) => [team.id, team.crestUrl as string]),
+)
+const KNOWN_TEAMS_BY_ID = new Map(
+  [...premierLeagueTeams, ...preseasonTeams].map((team) => [team.id, team]),
+)
+
 export const mockHomeData: HomeData = {
-  teams: premierLeagueTeams.map((team) => ({
+  teams: [...premierLeagueTeams, ...preseasonTeams].map((team) => ({
     ...team,
-    crestUrl: `/team-crests/${team.id}.webp`,
+    crestUrl: premierLeagueTeams.some((candidate) => candidate.id === team.id)
+      ? `/team-crests/${team.id}.webp`
+      : team.crestUrl,
   })),
   standings: premierLeagueTeams.map((team, index) => ({
     teamId: team.id,
@@ -242,6 +300,90 @@ export const mockHomeData: HomeData = {
     points: 0,
   })),
   fixtures: [
+    {
+      id: '128731',
+      matchweek: 0,
+      kickoffUtc: '2026-07-18T15:00:00.000Z',
+      status: 'Not played yet',
+      venue: 'Helsinki Olympic Stadium, Helsinki',
+      homeTeamId: '12',
+      awayTeamId: '195',
+      homeScore: null,
+      awayScore: null,
+      scorers: [],
+      assists: [],
+      watch: 'TBC',
+    },
+    {
+      id: '128834',
+      matchweek: 0,
+      kickoffUtc: '2026-07-24T16:00:00.000Z',
+      status: 'Not played yet',
+      venue: 'Lerkendal Stadium, Trondheim',
+      homeTeamId: '371',
+      awayTeamId: '12',
+      homeScore: null,
+      awayScore: null,
+      scorers: [],
+      assists: [],
+      watch: 'TBC',
+    },
+    {
+      id: '128836',
+      matchweek: 0,
+      kickoffUtc: '2026-08-01T13:00:00.000Z',
+      status: 'Not played yet',
+      venue: 'Strawberry Arena, Stockholm',
+      homeTeamId: '12',
+      awayTeamId: '48',
+      homeScore: null,
+      awayScore: null,
+      scorers: [],
+      assists: [],
+      watch: 'TBC',
+    },
+    {
+      id: '128833',
+      matchweek: 0,
+      kickoffUtc: '2026-08-08T15:00:00.000Z',
+      status: 'Not played yet',
+      venue: 'Ullevi Stadium, Gothenburg',
+      homeTeamId: '67',
+      awayTeamId: '12',
+      homeScore: null,
+      awayScore: null,
+      scorers: [],
+      assists: [],
+      watch: 'TBC',
+    },
+    {
+      id: '128825',
+      matchweek: 0,
+      kickoffUtc: '2026-08-12T18:30:00.000Z',
+      status: 'Not played yet',
+      venue: 'Croke Park, Dublin',
+      homeTeamId: '9',
+      awayTeamId: '12',
+      homeScore: null,
+      awayScore: null,
+      scorers: [],
+      assists: [],
+      watch: 'TBC',
+    },
+    {
+      id: '128906',
+      matchweek: 0,
+      kickoffUtc: '2026-08-15T14:00:00.000Z',
+      status: 'Not played yet',
+      venue: 'Tarczynski Arena, Wroclaw',
+      homeTeamId: '64',
+      awayTeamId: '12',
+      homeScore: null,
+      awayScore: null,
+      scorers: [],
+      assists: [],
+      watch: 'TBC',
+    },
     {
       id: '128923',
       matchweek: 1,
@@ -325,9 +467,158 @@ export const mockHomeData: HomeData = {
 export async function fetchHomeData(): Promise<HomeData> {
   const response = await fetch('/api/home-data')
 
-  if (!response.ok) {
-    throw new Error(`Home data request failed with ${response.status}`)
+  if (response.ok) {
+    return attachFixtureDatabaseIds(
+      normalizeHomeData(HomeDataSchema.parse(await response.json()) as HomeData),
+    )
   }
 
-  return HomeDataSchema.parse(await response.json()) as HomeData
+  const snapshotResponse = await fetch('/home-data-snapshot.json', {
+    cache: 'no-store',
+  })
+
+  if (snapshotResponse.ok) {
+    return attachFixtureDatabaseIds(
+      normalizeHomeData(HomeDataSchema.parse(await snapshotResponse.json()) as HomeData),
+    )
+  }
+
+  throw new Error(`Home data request failed with ${response.status}`)
+}
+
+export async function attachFixtureDatabaseIds(homeData: HomeData) {
+  const fixtureIdsNeedingLookup = homeData.fixtures
+    .filter((fixture) => !fixture.dbId)
+    .map((fixture) => fixture.providerFixtureId ?? fixture.id)
+
+  if (fixtureIdsNeedingLookup.length === 0) {
+    return homeData
+  }
+
+  const providerFixtureRows = new Map<string, string>()
+
+  for (const chunk of chunkValues(fixtureIdsNeedingLookup, 150)) {
+    const { data, error } = await supabase
+      .from('fixtures')
+      .select('id, provider_fixture_id')
+      .eq('provider', 'Premier League Pulse')
+      .in('provider_fixture_id', chunk)
+
+    if (error) {
+      return homeData
+    }
+
+    for (const row of data ?? []) {
+      providerFixtureRows.set(String(row.provider_fixture_id), row.id)
+    }
+  }
+
+  return {
+    ...homeData,
+    fixtures: homeData.fixtures.map((fixture) => {
+      const providerFixtureId = fixture.providerFixtureId ?? fixture.id
+
+      return {
+        ...fixture,
+        providerFixtureId,
+        dbId: fixture.dbId ?? providerFixtureRows.get(providerFixtureId),
+      }
+    }),
+  }
+}
+
+export function normalizeHomeData(homeData: HomeData) {
+  const normalizedTeams = homeData.teams.map((team) => {
+    const normalizedId = normalizeIdentifier(team.id)
+    const knownTeam = KNOWN_TEAMS_BY_ID.get(normalizedId)
+
+    return {
+      ...team,
+      id: normalizedId,
+      name: knownTeam?.name ?? team.name,
+      shortName: knownTeam?.shortName ?? team.shortName ?? team.name,
+      teamCode: normalizeTeamCode(
+        knownTeam?.teamCode ?? team.teamCode ?? TEAM_CODE_FALLBACKS.get(normalizedId),
+      ),
+      crestUrl:
+        knownTeam?.crestUrl ??
+        team.crestUrl ??
+        TEAM_CREST_FALLBACKS.get(normalizedId),
+    }
+  })
+  const normalizedTeamIds = new Set(normalizedTeams.map((team) => team.id))
+  const requiredTeamIds = new Set(
+    [
+      ...homeData.standings.map((standing) => normalizeIdentifier(standing.teamId)),
+      ...homeData.fixtures.flatMap((fixture) => [
+        normalizeIdentifier(fixture.homeTeamId),
+        normalizeIdentifier(fixture.awayTeamId),
+      ]),
+      ...homeData.leaderboards.scorers.map((leader) => normalizeIdentifier(leader.teamId)),
+      ...homeData.leaderboards.assists.map((leader) => normalizeIdentifier(leader.teamId)),
+      ...homeData.leaderboards.cleanSheets.map((leader) =>
+        normalizeIdentifier(leader.teamId),
+      ),
+    ].filter(Boolean),
+  )
+  const missingKnownTeams = Array.from(requiredTeamIds)
+    .filter((teamId) => !normalizedTeamIds.has(teamId))
+    .map((teamId) => KNOWN_TEAMS_BY_ID.get(teamId))
+    .filter((team): team is Team => Boolean(team))
+
+  return {
+    ...homeData,
+    teams: [...normalizedTeams, ...missingKnownTeams].sort((first, second) =>
+      first.name.localeCompare(second.name),
+    ),
+    standings: homeData.standings.map((standing) => ({
+      ...standing,
+      teamId: normalizeIdentifier(standing.teamId),
+    })),
+    fixtures: homeData.fixtures.map((fixture) => ({
+      ...fixture,
+      id: normalizeIdentifier(fixture.id),
+      providerFixtureId: normalizeIdentifier(fixture.providerFixtureId ?? fixture.id),
+      homeTeamId: normalizeIdentifier(fixture.homeTeamId),
+      awayTeamId: normalizeIdentifier(fixture.awayTeamId),
+    })),
+    leaderboards: {
+      ...homeData.leaderboards,
+      scorers: homeData.leaderboards.scorers.map((leader) => ({
+        ...leader,
+        teamId: normalizeIdentifier(leader.teamId),
+      })),
+      assists: homeData.leaderboards.assists.map((leader) => ({
+        ...leader,
+        teamId: normalizeIdentifier(leader.teamId),
+      })),
+      cleanSheets: homeData.leaderboards.cleanSheets.map((leader) => ({
+        ...leader,
+        teamId: normalizeIdentifier(leader.teamId),
+      })),
+    },
+  }
+}
+
+export function normalizeIdentifier(value: string) {
+  return String(value).replace(/\.0$/, '')
+}
+
+export function normalizeTeamCode(value?: string) {
+  const normalized = String(value ?? '')
+    .replace(/[^a-z0-9]/gi, '')
+    .slice(0, 3)
+    .toUpperCase()
+
+  return normalized || 'TBC'
+}
+
+export function chunkValues(values: string[], chunkSize: number) {
+  const chunks: string[][] = []
+
+  for (let index = 0; index < values.length; index += chunkSize) {
+    chunks.push(values.slice(index, index + chunkSize))
+  }
+
+  return chunks
 }

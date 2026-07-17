@@ -25,7 +25,7 @@ export function ChatMessageList({
 
   return (
     <div
-      className="min-h-56 flex-1 space-y-3 overflow-y-auto bg-[#FAF9FF] px-3 py-3 lg:min-h-0"
+      className="min-h-56 max-h-[50vh] flex-1 space-y-3 overflow-y-auto bg-[#FAF9FF] px-3 py-3 lg:min-h-0 lg:max-h-[420px]"
       aria-live="polite"
       aria-label="Chat messages"
     >

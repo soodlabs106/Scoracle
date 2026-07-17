@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 
 const DEFAULT_TIMEOUT_MS = 5_000
 const DEFAULT_RETRIES = 2
+const execFileAsync = promisify(execFile)
 
 export function requestIdFrom(event) {
   return (
@@ -55,17 +58,25 @@ export async function fetchWithPolicy(
 }
 
 export async function fetchJson<T = unknown>(url, options = {}): Promise<T> {
-  const response = await fetchWithPolicy(url, options)
+  try {
+    const response = await fetchWithPolicy(url, options)
 
-  if (!response.ok) {
-    const error = Object.assign(
-      new Error(`Provider request returned ${response.status}`),
-      { code: 'PROVIDER_RESPONSE_ERROR' },
-    )
+    if (!response.ok) {
+      const error = Object.assign(
+        new Error(`Provider request returned ${response.status}`),
+        { code: 'PROVIDER_RESPONSE_ERROR' },
+      )
+      throw error
+    }
+
+    return response.json() as Promise<T>
+  } catch (error) {
+    if (shouldUseCurlFallback(error, url, options)) {
+      return fetchJsonWithCurl<T>(url)
+    }
+
     throw error
   }
-
-  return response.json() as Promise<T>
 }
 
 export function jsonResponse(
@@ -110,4 +121,37 @@ export function logError(error, requestId, code) {
 
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
+function shouldUseCurlFallback(error, url, options) {
+  return (
+    process.platform === 'win32' &&
+    (!options || Object.keys(options).length === 0) &&
+    typeof url === 'string' &&
+    url.startsWith('https://footballapi.pulselive.com/') &&
+    isSocketAccessError(error)
+  )
+}
+
+function isSocketAccessError(error) {
+  const cause = error instanceof Error ? (error as Error & { cause?: unknown }).cause : null
+  const nestedErrors =
+    cause && typeof cause === 'object' && 'errors' in cause
+      ? (cause as { errors?: Array<{ code?: string }> }).errors ?? []
+      : []
+
+  return (
+    (error instanceof Error && error.message === 'fetch failed') &&
+    nestedErrors.some((nestedError) => nestedError?.code === 'EACCES')
+  )
+}
+
+async function fetchJsonWithCurl<T>(url: string): Promise<T> {
+  const { stdout } = await execFileAsync('curl.exe', ['-sS', url], {
+    timeout: DEFAULT_TIMEOUT_MS,
+    windowsHide: true,
+    maxBuffer: 10 * 1024 * 1024,
+  })
+
+  return JSON.parse(stdout) as T
 }
