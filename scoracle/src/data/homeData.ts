@@ -1,3 +1,4 @@
+import staticHomeDataSnapshot from '../../public/home-data-snapshot.json'
 import { HomeDataSchema } from '../../shared/contracts/homeData'
 import { supabase } from '../lib/supabaseClient'
 
@@ -60,6 +61,39 @@ export type HomeData = {
   }
   lastUpdated: string
   sources: string[]
+}
+
+const LOCAL_CREST_EXTENSIONS = new Map<string, 'png' | 'webp'>([
+  ['1', 'webp'],
+  ['2', 'webp'],
+  ['4', 'webp'],
+  ['5', 'webp'],
+  ['6', 'webp'],
+  ['7', 'webp'],
+  ['8', 'webp'],
+  ['9', 'webp'],
+  ['10', 'webp'],
+  ['11', 'webp'],
+  ['12', 'webp'],
+  ['15', 'webp'],
+  ['21', 'webp'],
+  ['23', 'webp'],
+  ['29', 'webp'],
+  ['34', 'webp'],
+  ['41', 'webp'],
+  ['48', 'png'],
+  ['64', 'png'],
+  ['67', 'png'],
+  ['127', 'webp'],
+  ['130', 'webp'],
+  ['131', 'webp'],
+  ['195', 'png'],
+  ['371', 'png'],
+])
+
+function getLocalTeamCrestPath(teamId: string) {
+  const extension = LOCAL_CREST_EXTENSIONS.get(teamId)
+  return extension ? `/team-crests/${teamId}.${extension}` : undefined
 }
 
 export const premierLeagueTeams: Team[] = [
@@ -283,9 +317,7 @@ const KNOWN_TEAMS_BY_ID = new Map(
 export const mockHomeData: HomeData = {
   teams: [...premierLeagueTeams, ...preseasonTeams].map((team) => ({
     ...team,
-    crestUrl: premierLeagueTeams.some((candidate) => candidate.id === team.id)
-      ? `/team-crests/${team.id}.webp`
-      : team.crestUrl,
+    crestUrl: getLocalTeamCrestPath(team.id) ?? team.crestUrl,
   })),
   standings: premierLeagueTeams.map((team, index) => ({
     teamId: team.id,
@@ -464,26 +496,42 @@ export const mockHomeData: HomeData = {
   sources: ['Local fallback data', 'Premier League Pulse endpoint shape'],
 }
 
+export const fallbackHomeData = normalizeHomeData(
+  staticHomeDataSnapshot as HomeData,
+)
+
 export async function fetchHomeData(): Promise<HomeData> {
-  const response = await fetch('/api/home-data')
+  const failedStatuses: number[] = []
 
-  if (response.ok) {
-    return attachFixtureDatabaseIds(
-      normalizeHomeData(HomeDataSchema.parse(await response.json()) as HomeData),
-    )
+  for (const endpoint of ['/api/home-data', '/.netlify/functions/home-data']) {
+    const response = await fetch(endpoint, {
+      cache: 'no-store',
+    })
+
+    if (response.ok) {
+      return attachFixtureDatabaseIds(
+        normalizeHomeData(HomeDataSchema.parse(await response.json()) as HomeData),
+      )
+    }
+
+    failedStatuses.push(response.status)
   }
 
-  const snapshotResponse = await fetch('/home-data-snapshot.json', {
-    cache: 'no-store',
-  })
+  try {
+    const snapshotResponse = await fetch('/home-data-snapshot.json', {
+      cache: 'no-store',
+    })
 
-  if (snapshotResponse.ok) {
-    return attachFixtureDatabaseIds(
-      normalizeHomeData(HomeDataSchema.parse(await snapshotResponse.json()) as HomeData),
-    )
+    if (snapshotResponse.ok) {
+      return attachFixtureDatabaseIds(
+        normalizeHomeData(HomeDataSchema.parse(await snapshotResponse.json()) as HomeData),
+      )
+    }
+  } catch {
+    // Fall through to the bundled snapshot below.
   }
 
-  throw new Error(`Home data request failed with ${response.status}`)
+  return attachFixtureDatabaseIds(fallbackHomeData)
 }
 
 export async function attachFixtureDatabaseIds(homeData: HomeData) {
@@ -541,6 +589,7 @@ export function normalizeHomeData(homeData: HomeData) {
         knownTeam?.teamCode ?? team.teamCode ?? TEAM_CODE_FALLBACKS.get(normalizedId),
       ),
       crestUrl:
+        getLocalTeamCrestPath(normalizedId) ??
         knownTeam?.crestUrl ??
         team.crestUrl ??
         TEAM_CREST_FALLBACKS.get(normalizedId),
@@ -561,10 +610,24 @@ export function normalizeHomeData(homeData: HomeData) {
       ),
     ].filter(Boolean),
   )
-  const missingKnownTeams = Array.from(requiredTeamIds)
-    .filter((teamId) => !normalizedTeamIds.has(teamId))
-    .map((teamId) => KNOWN_TEAMS_BY_ID.get(teamId))
-    .filter((team): team is Team => Boolean(team))
+  const missingKnownTeams: Team[] = []
+
+  for (const teamId of requiredTeamIds) {
+    if (normalizedTeamIds.has(teamId)) {
+      continue
+    }
+
+    const team = KNOWN_TEAMS_BY_ID.get(teamId)
+
+    if (!team) {
+      continue
+    }
+
+    missingKnownTeams.push({
+      ...team,
+      crestUrl: getLocalTeamCrestPath(team.id) ?? team.crestUrl,
+    })
+  }
 
   return {
     ...homeData,

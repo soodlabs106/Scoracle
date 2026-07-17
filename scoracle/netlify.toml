@@ -13,31 +13,36 @@
   from = "/api/home-data"
   to = "/.netlify/functions/home-data"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/api/team-details"
   to = "/.netlify/functions/team-details"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/api/cache-oauth-avatar"
   to = "/.netlify/functions/cache-oauth-avatar"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/api/admin/user-status"
   to = "/.netlify/functions/admin-user-status"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/api/health"
   to = "/.netlify/functions/health"
   status = 200
+  force = true
 
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.googleusercontent.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://zweaobtyawuymvsyzeph.supabase.co; connect-src 'self' https://zweaobtyawuymvsyzeph.supabase.co wss://zweaobtyawuymvsyzeph.supabase.co; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     Referrer-Policy = "strict-origin-when-cross-origin"
     X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"

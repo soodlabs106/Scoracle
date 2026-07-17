@@ -24,7 +24,6 @@ export type AuthContextValue = AuthState & {
     firstName?: string | null
     lastName?: string | null
     favoriteClub: string | null
-    avatarUrl?: string | null
     avatarPath?: string | null
   }) => Promise<Profile>
   refreshProfile: () => Promise<Profile | null>

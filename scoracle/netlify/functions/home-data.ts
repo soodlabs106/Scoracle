@@ -17,26 +17,26 @@ const CACHE_TTL_MS = 1000 * 60 * 30
 const FALLBACK_CRESTS_BY_PULSE_ID = new Map([
   ['1', '/team-crests/1.webp'],
   ['2', '/team-crests/2.webp'],
-  ['48', 'https://r2.thesportsdb.com/images/media/team/badge/0ulh3q1719984315.png'],
+  ['48', '/team-crests/48.png'],
   ['127', '/team-crests/127.webp'],
   ['130', '/team-crests/130.webp'],
   ['131', '/team-crests/131.webp'],
-  ['64', 'https://r2.thesportsdb.com/images/media/team/badge/wvspur1448806617.png'],
-  ['67', 'https://r2.thesportsdb.com/images/media/team/badge/rwqrrq1473504808.png'],
+  ['64', '/team-crests/64.png'],
+  ['67', '/team-crests/67.png'],
   ['4', '/team-crests/4.webp'],
   ['5', '/team-crests/5.webp'],
   ['6', '/team-crests/6.webp'],
   ['7', '/team-crests/7.webp'],
   ['34', '/team-crests/34.webp'],
   ['41', '/team-crests/41.webp'],
-  ['371', 'https://r2.thesportsdb.com/images/media/team/badge/z483ps1764866361.png'],
+  ['371', '/team-crests/371.png'],
   ['8', '/team-crests/8.webp'],
   ['9', '/team-crests/9.webp'],
   ['10', '/team-crests/10.webp'],
   ['11', '/team-crests/11.webp'],
   ['12', '/team-crests/12.webp'],
   ['23', '/team-crests/23.webp'],
-  ['195', 'https://r2.thesportsdb.com/images/media/team/badge/ezpymt1675092551.png'],
+  ['195', '/team-crests/195.png'],
   ['15', '/team-crests/15.webp'],
   ['29', '/team-crests/29.webp'],
   ['21', '/team-crests/21.webp'],
@@ -99,7 +99,7 @@ export async function handler(event: NetlifyFunctionEvent) {
   const season = process.env.SCORACLE_SEASON ?? '2026'
   const compSeasonId =
     process.env.PULSE_COMP_SEASON_ID ?? DEFAULT_COMP_SEASON_ID
-  const cacheKey = `home-data-v5:${season}:${compSeasonId}`
+  const cacheKey = `home-data-v6:${season}:${compSeasonId}`
   const forceRefresh = isAuthorizedRefresh(event)
 
   try {

@@ -5,6 +5,15 @@ import { promisify } from 'node:util'
 const DEFAULT_TIMEOUT_MS = 5_000
 const DEFAULT_RETRIES = 2
 const execFileAsync = promisify(execFile)
+const SECURITY_HEADERS = {
+  'content-security-policy':
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://zweaobtyawuymvsyzeph.supabase.co; connect-src 'self' https://zweaobtyawuymvsyzeph.supabase.co wss://zweaobtyawuymvsyzeph.supabase.co; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+  'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  'referrer-policy': 'strict-origin-when-cross-origin',
+  'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'DENY',
+}
 
 export function requestIdFrom(event) {
   return (
@@ -90,6 +99,7 @@ export function jsonResponse(
     headers: {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': cacheControl,
+      ...SECURITY_HEADERS,
       ...(requestId ? { 'x-request-id': requestId } : {}),
     },
     body: JSON.stringify(body),

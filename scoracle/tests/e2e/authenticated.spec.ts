@@ -139,3 +139,37 @@ test('mobile header uses avatar-only profile access', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Sign Out' })).toBeVisible()
   await expectNoPageOverflow(page)
 })
+
+test('preseason predictions save, reload, and can be deleted from profile history', async ({ page }) => {
+  await login(page, 'e2e.user@scoracle.local')
+  await expectSignedIn(page)
+
+  await expect(page.getByRole('heading', { name: 'Predictions', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^save/i })).toBeVisible()
+  await expect(page.getByText('Pre-season').first()).toBeVisible()
+
+  const homeScoreInput = page.getByLabel(/home score/i).first()
+  const awayScoreInput = page.getByLabel(/away score/i).first()
+  await homeScoreInput.fill('3')
+  await awayScoreInput.fill('1')
+  await page.getByRole('button', { name: /^save/i }).click()
+  await expect(page.getByText('Predictions saved.')).toBeVisible()
+  await expect(homeScoreInput).toHaveValue('3')
+  await expect(awayScoreInput).toHaveValue('1')
+
+  await page.reload()
+  await expectSignedIn(page)
+  await expect(page.getByRole('heading', { name: 'Predictions', exact: true })).toBeVisible()
+  await expect(page.getByLabel(/home score/i).first()).toHaveValue('3')
+  await expect(page.getByLabel(/away score/i).first()).toHaveValue('1')
+
+  await page.goto('/profile')
+  await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible()
+  await expect(page.getByText('PRE-SEASON').first()).toBeVisible()
+  const deleteButton = page.getByRole('button', { name: 'Delete prediction' }).first()
+  await expect(deleteButton).toBeVisible()
+  await deleteButton.click()
+  await expect(page.getByText('Delete Prediction?')).toBeVisible()
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click()
+  await expect(page.getByText('Prediction deleted.')).toBeVisible()
+})

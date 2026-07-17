@@ -16,7 +16,7 @@ import { Header } from '../components/layout/Header'
 import { useOnboarding } from '../components/onboarding/useOnboarding'
 import { FilterDropdown } from '../components/ui/FilterDropdown'
 import { useAuth } from '../context/useAuth'
-import { mockHomeData, type Team } from '../data/homeData'
+import { fallbackHomeData, type Team } from '../data/homeData'
 import { useHomeDataQuery } from '../features/home/useHomeDataQuery'
 import {
   listLocalPredictionsForUser,
@@ -48,6 +48,7 @@ import {
   formatDropdownMatchweekLabel,
   formatMatchweekLabel,
 } from '../utils/matchweekLabels'
+import { getSafeAvatarUrl } from '../utils/avatar'
 
 const MAX_AVATAR_SOURCE_BYTES = 3 * 1024 * 1024
 const MAX_AVATAR_DIMENSION = 512
@@ -86,8 +87,8 @@ export function ProfilePage() {
     checkUsernameAvailability,
   } = useAuth()
   const { openTour } = useOnboarding()
-  const homeDataQuery = useHomeDataQuery()
-  const clubs = homeDataQuery.data?.teams ?? mockHomeData.teams
+  const homeDataQuery = useHomeDataQuery(user?.id ?? null)
+  const clubs = homeDataQuery.data?.teams ?? fallbackHomeData.teams
   const [username, setUsername] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -155,7 +156,7 @@ export function ProfilePage() {
       setIsHistoryLoading(true)
 
       try {
-        const homeData = homeDataQuery.data ?? mockHomeData
+        const homeData = homeDataQuery.data ?? fallbackHomeData
         const simulatedHistory = await fetchSimulatedPredictionHistory(
           currentUser.id,
           homeData,
@@ -420,7 +421,6 @@ export function ProfilePage() {
         firstName: trimmedFirstName,
         lastName: trimmedLastName,
         favoriteClub: favoriteClub || null,
-        avatarUrl: nextAvatarUrl,
         avatarPath: nextAvatarPath,
       })
       if (avatarPath && selectedAvatarFile && avatarPath !== nextAvatarPath) {
@@ -575,7 +575,11 @@ export function ProfilePage() {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-3">
-                <AvatarPreview avatarUrl={avatarUrl} username={profile.username} />
+                <AvatarPreview
+                  avatarUrl={avatarUrl}
+                  avatarPath={avatarPath}
+                  username={profile.username}
+                />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xl font-bold">{profile.username}</p>
                   <p className="mt-1 truncate text-sm font-semibold text-[#555B7A]">
@@ -1156,15 +1160,20 @@ function hasActualResult(
 
 function AvatarPreview({
   avatarUrl,
+  avatarPath,
   username,
 }: {
   avatarUrl: string | null
+  avatarPath?: string | null
   username: string
 }) {
-  if (avatarUrl) {
+  const safeAvatarUrl =
+    avatarUrl?.startsWith('blob:') ? avatarUrl : getSafeAvatarUrl(avatarUrl, avatarPath)
+
+  if (safeAvatarUrl) {
     return (
       <img
-        src={avatarUrl}
+        src={safeAvatarUrl}
         alt=""
         className="h-20 w-20 shrink-0 rounded-lg border-2 border-[#18D6C9] object-cover"
       />

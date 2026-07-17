@@ -27,6 +27,7 @@ import {
   formatCompactMatchweekLabel,
   formatDropdownMatchweekLabel,
 } from '../utils/matchweekLabels'
+import { getSafeAvatarUrl } from '../utils/avatar'
 
 type ActiveTab = 'overall' | 'matchweek'
 
@@ -587,10 +588,12 @@ function MobileAccordionSection({
 }
 
 function ChartAvatar({ user }: { user: LeaderboardRow }) {
-  if (user.avatar_url) {
+  const safeAvatarUrl = getSafeAvatarUrl(user.avatar_url)
+
+  if (safeAvatarUrl) {
     return (
       <img
-        src={user.avatar_url}
+        src={safeAvatarUrl}
         alt=""
         className="h-9 w-9 rounded-full object-cover"
       />

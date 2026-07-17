@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`Scoracle Supabase Maintenance` performs legitimate, lightweight application maintenance once per day. It counts active Scoracle profiles, deletes chat messages older than 14 days, and records the result in `public.system_job_runs`. The workflow invokes the reviewed `scripts/supabase-maintenance.sh` script. It is not a fake ping and does not call Netlify, football providers, email services, or frontend endpoints.
+`Scoracle Supabase Maintenance` performs legitimate, lightweight application maintenance once per day. It counts active Scoracle profiles, deletes chat messages older than 30 days, and records the result in `public.system_job_runs`. The workflow invokes the reviewed `scripts/supabase-maintenance.sh` script. It is not a fake ping and does not call Netlify, football providers, email services, or frontend endpoints.
 
 The workflow reduces the chance of a Supabase Free project being considered inactive, but Supabase controls Free-plan pause policy and does not guarantee that any particular request prevents a pause. Check the current Supabase plan terms periodically.
 

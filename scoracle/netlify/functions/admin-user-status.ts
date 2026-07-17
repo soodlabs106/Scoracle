@@ -59,6 +59,13 @@ export async function handler(event: NetlifyFunctionEvent) {
         body.targetUserId,
         body.disabled,
       )
+      await writeAdminAuditLog(
+        config,
+        actor.id,
+        body.targetUserId,
+        body.disabled,
+        requestId,
+      )
       return jsonResponse(updatedProfile, 200, 'no-store', requestId)
     } catch (error) {
       await updateAuthBan(config, body.targetUserId, !body.disabled).catch(
@@ -141,6 +148,36 @@ async function updateProfileStatus(config, userId, disabled) {
   }
 
   return (await response.json())[0]
+}
+
+async function writeAdminAuditLog(
+  config,
+  actorUserId,
+  targetUserId,
+  disabled,
+  requestId,
+) {
+  const response = await fetch(`${config.url}/rest/v1/app_activity_logs`, {
+    method: 'POST',
+    headers: {
+      ...supabaseHeaders(config),
+      'content-type': 'application/json',
+      prefer: 'return=minimal',
+    },
+    body: JSON.stringify([{
+      user_id: actorUserId,
+      target_user_id: targetUserId,
+      event_type: disabled ? 'USER_DISABLED' : 'USER_ENABLED',
+      metadata: {
+        source: 'netlify_admin_user_status',
+        request_id: requestId,
+      },
+    }]),
+  })
+
+  if (!response.ok) {
+    throw codedError('ADMIN_AUDIT_LOG_FAILED')
+  }
 }
 
 function codedError(code) {

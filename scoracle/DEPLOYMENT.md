@@ -16,6 +16,7 @@ Netlify should deploy from `main`. Active development continues on `dev`.
 - [ ] On `dev` branch.
 - [ ] `npm install` completed in `scoracle/`.
 - [ ] `npm run lint` passes.
+- [ ] `npm run security:check` passes.
 - [ ] `npm run build` passes.
 - [ ] No secrets are committed.
 - [ ] `.env` and `.env.local` are ignored.
@@ -164,6 +165,7 @@ git status
 cd scoracle
 npm install
 npm run lint
+npm run security:check
 npm run build
 supabase migration list
 supabase db push
@@ -179,11 +181,15 @@ git push origin main
 git checkout dev
 ```
 
+Production Netlify CLI deploys must not use `--debug` by default. Use `netlify deploy --prod --site <site-id>` unless a one-off incident response session explicitly requires debug logging.
+
 Do not force push, rewrite history, reset the remote database, or delete branches.
 
 ## Post-Deployment Smoke Test
 
 - [ ] Netlify home page opens.
+- [ ] `/` returns the expected CSP, HSTS, XFO, nosniff, and referrer-policy headers.
+- [ ] `/api/health` returns JSON with the expected security headers.
 - [ ] Direct refresh on `/profile` works.
 - [ ] Direct refresh on `/leaderboard` works.
 - [ ] Direct refresh on `/admin-soodlabs` works.
