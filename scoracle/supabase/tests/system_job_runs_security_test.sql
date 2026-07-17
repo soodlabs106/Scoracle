@@ -26,6 +26,8 @@ update public.profiles
 set role = 'admin'
 where id = '33333333-3333-4333-8333-333333333333';
 
+delete from public.system_job_runs;
+
 insert into public.system_job_runs (job_name, status, details)
 values (
   'github-daily-maintenance',

@@ -17,6 +17,10 @@ export type PredictionUpsert = Pick<
   | 'is_locked'
 >
 
+export type PredictionRowWithFixtureMapping = PredictionRow & {
+  provider_fixture_id?: string
+}
+
 export async function listPredictionsForMatchWeek(
   userId: string,
   matchWeek: number,
@@ -31,12 +35,40 @@ export async function listPredictionsForMatchWeek(
     throw new Error(error.message)
   }
 
+  const remoteRows = ((data ?? []) as PredictionRow[])
+  const remoteFixtureIds = remoteRows
+    .map((prediction) => prediction.fixture_id)
+    .filter((fixtureId) => isUuid(fixtureId))
+  const providerFixtureIdsByFixtureId = new Map<string, string>()
+
+  if (remoteFixtureIds.length > 0) {
+    const { data: fixtures, error: fixtureError } = await supabase
+      .from('fixtures')
+      .select('id, provider_fixture_id')
+      .in('id', remoteFixtureIds)
+
+    if (!fixtureError) {
+      for (const fixture of fixtures ?? []) {
+        providerFixtureIdsByFixtureId.set(
+          fixture.id,
+          String(fixture.provider_fixture_id),
+        )
+      }
+    }
+  }
+
   const localRows = readLocalPredictions().filter(
     (prediction) =>
       prediction.user_id === userId && prediction.match_week === matchWeek,
   )
 
-  return [...((data ?? []) as PredictionRow[]), ...localRows]
+  return [
+    ...remoteRows.map((prediction) => ({
+      ...prediction,
+      provider_fixture_id: providerFixtureIdsByFixtureId.get(prediction.fixture_id),
+    })),
+    ...localRows,
+  ] as PredictionRowWithFixtureMapping[]
 }
 
 export function listLocalPredictionsForUser(userId: string) {

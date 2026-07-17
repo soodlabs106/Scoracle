@@ -1,5 +1,5 @@
 begin;
-select plan(8);
+select plan(15);
 
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password,
@@ -26,7 +26,10 @@ insert into public.fixtures (
 )
 values
   ('aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa', 'test', 'test', 'future', 1, now() + interval '7 days', 'scheduled', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
-  ('bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb', 'test', 'test', 'locked', 2, now() + interval '12 hours', 'scheduled', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+  ('bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb', 'test', 'test', 'locked', 2, now() + interval '30 minutes', 'scheduled', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
+  ('cccccccc-3333-4333-8333-cccccccccccc', 'test', 'test', 'preseason-open', 0, now() + interval '2 hours', 'scheduled', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
+  ('dddddddd-4444-4444-8444-dddddddddddd', 'test', 'test', 'preseason-later', 0, now() + interval '7 days', 'scheduled', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
+  ('eeeeeeee-5555-4555-8555-eeeeeeeeeeee', 'test', 'test', 'preseason-locked', 0, now() + interval '30 minutes', 'scheduled', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
@@ -42,12 +45,50 @@ select is(
   1,
   'database derives match week from the fixture'
 );
+select lives_ok(
+  $$update public.predictions
+      set predicted_home_score = 4
+    where user_id = auth.uid()
+      and fixture_id = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa'$$,
+  'active user can update an unlocked prediction'
+);
+select lives_ok(
+  $$delete from public.predictions
+    where user_id = auth.uid()
+      and fixture_id = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa'$$,
+  'active user can delete an unlocked prediction'
+);
+select lives_ok(
+  $$insert into public.predictions (user_id, fixture_id, match_week, predicted_home_score, predicted_away_score)
+    values ('11111111-1111-4111-8111-111111111111', 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa', 1, 2, 1)$$,
+  'active user can recreate an unlocked prediction after delete'
+);
 select throws_ok(
   $$insert into public.predictions (user_id, fixture_id, match_week, predicted_home_score, predicted_away_score)
     values ('11111111-1111-4111-8111-111111111111', 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb', 2, 1, 1)$$,
   '42501',
   null,
-  'database rejects predictions inside the 24-hour match-week lock'
+  'database rejects predictions inside the 1-hour fixture lock'
+);
+select ok(
+  not public.is_fixture_match_week_locked('cccccccc-3333-4333-8333-cccccccccccc'),
+  'preseason fixture remains open until one hour before kickoff'
+);
+select lives_ok(
+  $$insert into public.predictions (user_id, fixture_id, match_week, predicted_home_score, predicted_away_score)
+    values ('11111111-1111-4111-8111-111111111111', 'cccccccc-3333-4333-8333-cccccccccccc', 0, 3, 1)$$,
+  'active user can insert an unlocked preseason prediction'
+);
+select ok(
+  not public.is_fixture_match_week_locked('dddddddd-4444-4444-8444-dddddddddddd'),
+  'later preseason fixtures are not locked by the first preseason kickoff'
+);
+select throws_ok(
+  $$insert into public.predictions (user_id, fixture_id, match_week, predicted_home_score, predicted_away_score)
+    values ('11111111-1111-4111-8111-111111111111', 'eeeeeeee-5555-4555-8555-eeeeeeeeeeee', 0, 1, 0)$$,
+  '42501',
+  null,
+  'database rejects preseason predictions inside the 1-hour fixture lock'
 );
 
 reset role;
@@ -57,7 +98,12 @@ set home_score = 2, away_score = 1, status = 'completed'
 where id = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
 
 select is(
-  (select closeness || ':' || points::text from public.predictions where user_id = '11111111-1111-4111-8111-111111111111'),
+  (
+    select closeness || ':' || points::text
+    from public.predictions
+    where user_id = '11111111-1111-4111-8111-111111111111'
+      and fixture_id = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa'
+  ),
   'EXACT:5',
   'fixture result trigger scores all matching predictions'
 );
@@ -81,7 +127,7 @@ values ('22222222-2222-4222-8222-222222222222', 'aaaaaaaa-1111-4111-8111-aaaaaaa
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', true);
-select is((select count(*)::integer from public.predictions), 2, 'admin can read all predictions');
+select is((select count(*)::integer from public.predictions), 3, 'admin can read all predictions');
 
 select * from finish();
 rollback;

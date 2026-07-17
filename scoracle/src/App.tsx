@@ -27,6 +27,7 @@ import {
   listPredictionsForMatchWeek,
   removePrediction,
   savePredictions as persistPredictions,
+  type PredictionRowWithFixtureMapping,
   type PredictionUpsert,
 } from './features/predictions/predictionRepository'
 import {
@@ -36,7 +37,7 @@ import {
   getPredictionGroupLockInfo,
 } from './features/predictions/fixtureLocking'
 import {
-  mockHomeData,
+  fallbackHomeData,
   type Fixture,
   type HomeData,
   type Leader,
@@ -90,11 +91,14 @@ type TeamResult = {
 
 function App() {
   const { profile, user } = useAuth()
-  const homeDataQuery = useHomeDataQuery()
-  const homeData = homeDataQuery.data ?? mockHomeData
+  const homeDataQuery = useHomeDataQuery(user?.id ?? null)
+  const homeData = homeDataQuery.data ?? fallbackHomeData
   const isLoading = homeDataQuery.isLoading && !homeDataQuery.data
-  const dataNotice = homeDataQuery.isError
-    ? 'Using local fallback data until the backend is running'
+  const isFallbackData =
+    homeData.sources.includes('Local static snapshot') ||
+    homeData.sources.includes('Local fallback data')
+  const dataNotice = isFallbackData
+    ? 'Using bundled fallback data until the backend is running'
     : homeData.sources.includes('Local prediction simulation')
       ? 'Local prediction simulation loaded'
       : isLoading
@@ -369,12 +373,7 @@ function App() {
           return
         }
 
-        const nextPredictions = new Map(
-          predictionRows.map((prediction) => [
-            prediction.fixture_id,
-            prediction,
-          ]),
-        )
+        const nextPredictions = buildPredictionMap(predictionRows)
         const nextDrafts: Record<string, PredictionDraft> = {}
 
         for (const fixture of predictionFixtures) {
@@ -454,7 +453,7 @@ function App() {
       return
     }
 
-    let fixturesForSave = predictionFixtures
+    const fixturesForSave = predictionFixtures
 
     const changedFixtures = fixturesForSave.filter(
       (fixture) => dirtyFixtureIds.has(getPredictionDraftKey(fixture)),
@@ -1918,6 +1917,25 @@ function getFixtureMonthKey(kickoffUtc: string) {
     year: 'numeric',
     month: '2-digit',
   }).format(new Date(kickoffUtc))
+}
+
+function buildPredictionMap(
+  predictions: PredictionRowWithFixtureMapping[],
+) {
+  const predictionsByFixtureId = new Map<string, PredictionRow>()
+
+  for (const prediction of predictions) {
+    predictionsByFixtureId.set(prediction.fixture_id, prediction)
+
+    if (prediction.provider_fixture_id) {
+      predictionsByFixtureId.set(
+        `provider:${prediction.provider_fixture_id}`,
+        prediction,
+      )
+    }
+  }
+
+  return predictionsByFixtureId
 }
 
 function formatMonth(monthKey: string) {

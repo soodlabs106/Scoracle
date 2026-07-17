@@ -16,7 +16,7 @@ export async function handler(event: NetlifyFunctionEvent) {
 
   if (!config) {
     return jsonResponse(
-      { status: 'unhealthy', database: 'unconfigured', requestId },
+      { status: 'unhealthy', requestId },
       503,
       'no-store',
       requestId,
@@ -37,14 +37,14 @@ export async function handler(event: NetlifyFunctionEvent) {
     }
 
     return jsonResponse(
-      { status: 'healthy', database: 'reachable', requestId },
+      { status: 'healthy', requestId },
       200,
       'no-store',
       requestId,
     )
   } catch {
     return jsonResponse(
-      { status: 'unhealthy', database: 'unreachable', requestId },
+      { status: 'unhealthy', requestId },
       503,
       'no-store',
       requestId,

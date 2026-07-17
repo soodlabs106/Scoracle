@@ -52,22 +52,39 @@ describe('prediction history compatibility', () => {
 
     const responses = [
       new QueryBuilder({
-        data: [{
-          id: 'prediction-1', fixture_id: 'fixture-1', match_week: 1,
-          predicted_home_score: 2, predicted_away_score: 1,
-          closeness: null, points: 0, is_locked: false,
-          created_at: '2026-06-01T00:00:00.000Z',
-          updated_at: '2026-06-01T00:00:00.000Z',
-        }],
+        data: [
+          {
+            id: 'prediction-1', fixture_id: 'fixture-1', match_week: 1,
+            predicted_home_score: 2, predicted_away_score: 1,
+            closeness: null, points: 0, is_locked: false,
+            created_at: '2026-06-01T00:00:00.000Z',
+            updated_at: '2026-06-01T00:00:00.000Z',
+          },
+          {
+            id: 'prediction-2', fixture_id: 'fixture-2', match_week: 0,
+            predicted_home_score: 3, predicted_away_score: 1,
+            closeness: null, points: 0, is_locked: false,
+            created_at: '2026-07-17T00:00:00.000Z',
+            updated_at: '2026-07-17T00:00:00.000Z',
+          },
+        ],
         error: null,
       }),
       new QueryBuilder({
-        data: [{
-          id: 'fixture-1', matchweek: 1,
-          kickoff_utc: '2026-08-22T19:00:00.000Z',
-          home_score: null, away_score: null,
-          home_team_id: 'home-1', away_team_id: 'away-1',
-        }],
+        data: [
+          {
+            id: 'fixture-1', matchweek: 1,
+            kickoff_utc: '2026-08-22T19:00:00.000Z',
+            home_score: null, away_score: null,
+            home_team_id: 'home-1', away_team_id: 'away-1',
+          },
+          {
+            id: 'fixture-2', matchweek: 0,
+            kickoff_utc: '2026-07-24T16:00:00.000Z',
+            home_score: null, away_score: null,
+            home_team_id: 'away-1', away_team_id: 'home-1',
+          },
+        ],
         error: null,
       }),
       new QueryBuilder({
@@ -82,13 +99,23 @@ describe('prediction history compatibility', () => {
 
     const rows = await fetchMyPredictionHistory()
 
-    expect(rows).toHaveLength(1)
+    expect(rows).toHaveLength(2)
     expect(rows[0]).toMatchObject({
       prediction_id: 'prediction-1',
       home_team_code: 'ARS',
       away_team_code: 'LEE',
       predicted_home_score: 2,
       predicted_away_score: 1,
+      matchweek_lock_at: '2026-08-22T18:00:00.000Z',
+    })
+    expect(rows[1]).toMatchObject({
+      prediction_id: 'prediction-2',
+      match_week: 0,
+      home_team_code: 'LEE',
+      away_team_code: 'ARS',
+      predicted_home_score: 3,
+      predicted_away_score: 1,
+      matchweek_lock_at: '2026-07-24T15:00:00.000Z',
     })
   })
 

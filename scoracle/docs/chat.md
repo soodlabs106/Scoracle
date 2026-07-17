@@ -4,7 +4,7 @@
 
 - Pre-change Git commit: `6790605ab861ea8bf3f41472ff13228bf0e2080e`.
 - Apply `supabase/migrations/20260701230000_authenticated_general_chat.sql` before deploying the frontend.
-- The migration creates and secures General Chat, adds it to Supabase Realtime, and installs the service-role-only 14-day cleanup RPC.
+- The migration creates and secures General Chat, adds it to Supabase Realtime, and installs the service-role-only 30-day cleanup RPC.
 - The existing daily GitHub maintenance workflow calls the cleanup RPC and writes its result to `system_job_runs`.
 - No manual room creation is required. The migration seeds General Chat.
 

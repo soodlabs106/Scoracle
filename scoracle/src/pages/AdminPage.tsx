@@ -10,6 +10,7 @@ import { Link } from 'react-router'
 import { useAuth } from '../context/useAuth'
 import type { AdminProfileRow } from '../types/auth'
 import { useHelp } from '../features/help/useHelp'
+import { getSafeAvatarUrl } from '../utils/avatar'
 import {
   fetchAdminActivityLogs,
   fetchAdminUserDetails,
@@ -1099,11 +1100,12 @@ function AdminAvatar({
   large?: boolean
 }) {
   const sizeClass = large ? 'h-14 w-14 text-lg' : 'h-8 w-8 text-xs'
+  const safeAvatarUrl = getSafeAvatarUrl(profile.avatar_url)
 
-  if (profile.avatar_url) {
+  if (safeAvatarUrl) {
     return (
       <img
-        src={profile.avatar_url}
+        src={safeAvatarUrl}
         alt=""
         className={`${sizeClass} shrink-0 rounded-full border-2 border-[#18D6C9] object-cover`}
       />

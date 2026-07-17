@@ -7,7 +7,7 @@ for (const viewport of [
 ]) {
   test(`public home has no horizontal overflow at ${viewport.name}`, async ({ page }) => {
     await page.setViewportSize(viewport)
-    await page.goto('/')
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
 
     const layout = await page.evaluate(() => ({
       viewportWidth: window.innerWidth,

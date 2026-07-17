@@ -6,14 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && npm run typecheck:functions && vite build",
+    "security:check": "node scripts/security-guardrails.mjs",
     "typecheck:functions": "tsc -p tsconfig.functions.json",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "npm run test:e2e:seed && playwright test",
+    "test:e2e:build": "tsc -b && npm run typecheck:functions && vite build --mode localhost",
     "test:e2e:seed": "node scripts/seed-local-e2e.mjs",
-    "test:all": "npm run lint && npm run test && npm run build",
+    "test:all": "npm run lint && npm run security:check && npm run test && npm run build",
     "images:optimize": "node scripts/optimize-images.mjs"
   },
   "dependencies": {

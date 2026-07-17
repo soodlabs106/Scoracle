@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import { HelpCircle, Sparkles } from 'lucide-react'
 import { useAuth } from '../../context/useAuth'
 import { useHelp } from '../../features/help/useHelp'
+import { getSafeAvatarUrl } from '../../utils/avatar'
 
 type HeaderProps = {
   onLogin: () => void
@@ -88,6 +89,7 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
               >
                 <HeaderAvatar
                   avatarUrl={profile.avatar_url}
+                  avatarPath={profile.avatar_path}
                   username={profile.username}
                 />
                 <span className="hidden max-w-44 truncate sm:inline">{profile.username}</span>
@@ -128,15 +130,19 @@ export function Header({ onLogin, onSignup }: HeaderProps) {
 
 function HeaderAvatar({
   avatarUrl,
+  avatarPath,
   username,
 }: {
   avatarUrl: string | null
+  avatarPath?: string | null
   username: string
 }) {
-  if (avatarUrl) {
+  const safeAvatarUrl = getSafeAvatarUrl(avatarUrl, avatarPath)
+
+  if (safeAvatarUrl) {
     return (
       <img
-        src={avatarUrl}
+        src={safeAvatarUrl}
         alt=""
         className="h-9 w-9 shrink-0 rounded-full border-2 border-[#18D6C9] object-cover"
       />

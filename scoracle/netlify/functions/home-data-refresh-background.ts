@@ -13,7 +13,7 @@ export async function handler(event: NetlifyFunctionEvent) {
 
   const season = process.env.SCORACLE_SEASON ?? '2026'
   const compSeasonId = process.env.PULSE_COMP_SEASON_ID ?? '841'
-  const cacheKey = `home-data-v4:${season}:${compSeasonId}`
+  const cacheKey = `home-data-v6:${season}:${compSeasonId}`
 
   try {
     await refreshHomeData({

@@ -13,7 +13,7 @@ select has_function(
   'public',
   'prune_chat_messages',
   array[]::text[],
-  '14-day chat cleanup function exists'
+  '30-day chat cleanup function exists'
 );
 select policies_are(
   'public',

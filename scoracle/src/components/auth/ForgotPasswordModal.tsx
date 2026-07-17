@@ -33,7 +33,9 @@ export function ForgotPasswordModal({
     try {
       await resetPassword(email)
       setServerTone('success')
-      setServerMessage('Password reset email requested. Check your inbox.')
+      setServerMessage(
+        'If an account exists for that email, a reset link will be sent.',
+      )
     } catch (error) {
       setServerTone('error')
       setServerMessage(

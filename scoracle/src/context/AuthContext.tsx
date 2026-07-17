@@ -8,6 +8,7 @@ import {
 import { supabase } from '../lib/supabaseClient'
 import { logSessionActivity } from '../data/activityLogs'
 import type { AuthState, Profile } from '../types/auth'
+import { buildAvatarUrlFromPath } from '../utils/avatar'
 import {
   AuthContext,
   type AuthContextValue,
@@ -191,12 +192,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('First name and last name are required.')
     }
 
-    const isAvailable = await checkUsernameAvailability(trimmedUsername)
-
-    if (!isAvailable) {
-      throw new Error('That username is already taken.')
-    }
-
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
@@ -211,11 +206,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     if (error) {
-      throw new Error(toFriendlyAuthError(error.message))
-    }
-
-    if (data.user && data.user.identities?.length === 0) {
-      throw new Error('An account with this email already exists.')
+      throw new Error(
+        toGenericSignupError(toFriendlyAuthError(error.message)),
+      )
     }
 
     if (data.session) {
@@ -223,8 +216,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return 'Account created.'
     }
 
-    return 'Account created. Check your email to confirm your account before logging in.'
-  }, [applySession, checkUsernameAvailability])
+    if (data.user && data.user.identities?.length === 0) {
+      return GENERIC_SIGNUP_MESSAGE
+    }
+
+    return GENERIC_SIGNUP_MESSAGE
+  }, [applySession])
 
   const signIn = useCallback(
     async (email: string, password: string) => {
@@ -341,14 +338,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       firstName,
       lastName,
       favoriteClub,
-      avatarUrl,
       avatarPath,
     }: {
       username: string
       firstName?: string | null
       lastName?: string | null
       favoriteClub: string | null
-      avatarUrl?: string | null
       avatarPath?: string | null
     }) => {
       if (!state.user) {
@@ -367,10 +362,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const trimmedLastName =
         lastName === undefined ? state.profile.last_name : (lastName ?? '').trim()
       const trimmedFavoriteClub = favoriteClub?.trim() || null
-      const nextAvatarUrl =
-        avatarUrl === undefined ? state.profile.avatar_url : avatarUrl
       const nextAvatarPath =
         avatarPath === undefined ? state.profile.avatar_path : avatarPath
+      const nextAvatarUrl = buildAvatarUrlFromPath(nextAvatarPath)
 
       if (!trimmedUsername) {
         throw new Error('Username is required.')
@@ -388,7 +382,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const favoriteClubChanged =
         trimmedFavoriteClub !== (state.profile?.favorite_club ?? null)
       const avatarChanged =
-        nextAvatarUrl !== (state.profile.avatar_url ?? null) ||
+        nextAvatarUrl !== buildAvatarUrlFromPath(state.profile.avatar_path) ||
         nextAvatarPath !== (state.profile.avatar_path ?? null)
 
       if (
@@ -650,6 +644,23 @@ function toFriendlyAuthError(message: string) {
 
   if (normalized.includes('email not confirmed')) {
     return 'Please confirm your email before logging in.'
+  }
+
+  return message
+}
+
+const GENERIC_SIGNUP_MESSAGE =
+  'If your details can be used to create an account, you will receive the next steps by email.'
+
+function toGenericSignupError(message: string) {
+  const normalized = message.toLowerCase()
+
+  if (
+    normalized.includes('already registered') ||
+    normalized.includes('already exists') ||
+    normalized.includes('username')
+  ) {
+    return 'Could not create your account with those details. Try signing in or resetting your password.'
   }
 
   return message

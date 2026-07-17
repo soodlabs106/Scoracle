@@ -107,7 +107,7 @@ fi
 
 echo "Lightweight check completed successfully."
 
-# Chat messages are intentionally retained for no more than 14 days. The RPC
+# Chat messages are intentionally retained for no more than 30 days. The RPC
 # can be absent after an emergency feature rollback; that is a safe skip.
 echo "Pruning expired chat messages."
 failure_step="chat_retention_cleanup"
