@@ -1176,6 +1176,11 @@ function FixtureCard({
               <Clock3 className="h-4 w-4 text-[#FF2D9A]" />
               {kickoff.time} IST
             </p>
+            <span
+              className={`rounded-full px-2.5 py-1 text-xs font-black uppercase ${getFixtureStatusClass(fixture)}`}
+            >
+              {fixture.status}
+            </span>
           </div>
         </div>
 
@@ -1955,6 +1960,26 @@ function initials(value: string) {
     .join('')
     .slice(0, 3)
     .toUpperCase()
+}
+
+function getFixtureStatusClass(fixture: Fixture) {
+  if (fixture.statusPhase === 'LIVE') {
+    return 'bg-[#FFF4CC] text-[#7A5C00]'
+  }
+
+  if (fixture.statusPhase === 'HALF_TIME') {
+    return 'bg-[#E9F0FF] text-[#2F6BFF]'
+  }
+
+  if (fixture.statusPhase === 'FULL_TIME') {
+    return 'bg-[#F1ECFF] text-[#5B3FFF]'
+  }
+
+  if (fixture.statusPhase === 'POSTPONED') {
+    return 'bg-[#FDE7E7] text-[#8A2626]'
+  }
+
+  return 'bg-[#F7F5FF] text-[#555B7A]'
 }
 
 export default App

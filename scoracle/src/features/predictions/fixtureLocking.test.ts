@@ -33,7 +33,7 @@ describe('fixture locking helpers', () => {
     vi.useRealTimers()
   })
 
-  it('locks each fixture one hour before kickoff and uses db ids for prediction keys', () => {
+  it('locks each fixture at kickoff and uses db ids for prediction keys', () => {
     vi.setSystemTime(new Date('2026-07-17T13:30:00.000Z'))
     const fixture = buildFixture({
       id: '128731',
@@ -46,10 +46,10 @@ describe('fixture locking helpers', () => {
     )
     expect(getFixtureLockInfo(fixture)).toMatchObject({
       isLocked: false,
-      lockAt: new Date('2026-07-18T14:00:00.000Z'),
+      lockAt: new Date('2026-07-18T15:00:00.000Z'),
     })
 
-    vi.setSystemTime(new Date('2026-07-18T14:30:00.000Z'))
+    vi.setSystemTime(new Date('2026-07-18T15:00:00.000Z'))
     expect(getFixtureLockInfo(fixture).isLocked).toBe(true)
   })
 
@@ -95,7 +95,10 @@ describe('fixture locking helpers', () => {
 
     expect(getDefaultPredictionMatchweek(fixtures)).toBe(0)
 
-    vi.setSystemTime(new Date('2026-07-18T14:30:00.000Z'))
+    vi.setSystemTime(new Date('2026-07-18T14:59:00.000Z'))
+    expect(getDefaultPredictionMatchweek(fixtures)).toBe(0)
+
+    vi.setSystemTime(new Date('2026-07-18T15:00:00.000Z'))
     expect(getDefaultPredictionMatchweek(fixtures)).toBe(1)
   })
 })

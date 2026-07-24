@@ -156,11 +156,13 @@ export async function handler(event: NetlifyFunctionEvent) {
 
     const teamsById = new Map()
     const standings = normalizeStandings(standingsResponse, teamsById)
-    const fixtures = mergeFixtures(
+    const fixtures = await enrichFixturesWithDetails(
+      mergeFixtures(
       normalizeFixtures(fixturesResponse, teamsById),
       normalizeFixtures(preseasonFixturesResponse, teamsById, {
         matchweekOverride: PRESEASON_MATCHWEEK,
       }),
+      ),
     )
     const teams = Array.from(teamsById.values())
       .map((team) => ({
@@ -198,7 +200,6 @@ export async function handler(event: NetlifyFunctionEvent) {
         'Premier League Pulse',
         'Premier League Pulse preseason friendlies',
         'Local static image cache',
-        process.env.API_FOOTBALL_KEY ? 'API-Football configured as fallback' : '',
       ].filter(Boolean),
     }
 
@@ -357,6 +358,7 @@ function normalizeFixtures(
     .map((fixture) => {
       const homeTeam = normalizePulseTeam(fixture.teams?.[0]?.team)
       const awayTeam = normalizePulseTeam(fixture.teams?.[1]?.team)
+      const state = normalizeFixtureState(fixture, homeTeam.id, awayTeam.id)
 
       teamsById.set(homeTeam.id, homeTeam)
       teamsById.set(awayTeam.id, awayTeam)
@@ -365,14 +367,16 @@ function normalizeFixtures(
         id: String(fixture.id),
         matchweek: Number(matchweekOverride ?? fixture.gameweek?.gameweek ?? 0),
         kickoffUtc: new Date(getFixtureKickoffMillis(fixture)).toISOString(),
-        status: normalizeStatus(fixture.status),
+        status: state.status,
+        statusPhase: state.statusPhase,
+        elapsedMinutes: state.elapsedMinutes,
         venue: [fixture.ground?.name, fixture.ground?.city]
           .filter(Boolean)
           .join(', '),
         homeTeamId: homeTeam.id,
         awayTeamId: awayTeam.id,
-        homeScore: getTeamGoals(fixture, homeTeam.id),
-        awayScore: getTeamGoals(fixture, awayTeam.id),
+        homeScore: state.homeScore,
+        awayScore: state.awayScore,
         scorers: getGoalNames(fixture.goals),
         assists: getAssistNames(fixture.goals),
         watch: 'TBC',
@@ -399,6 +403,48 @@ function mergeFixtures(...fixtureGroups) {
       new Date(first.kickoffUtc).getTime() -
       new Date(second.kickoffUtc).getTime(),
   )
+}
+
+async function enrichFixturesWithDetails(fixtures) {
+  const fixturesNeedingDetails = fixtures.filter(
+    (fixture) =>
+      fixture.statusPhase !== 'SCHEDULED' &&
+      fixture.statusPhase !== 'POSTPONED',
+  )
+
+  if (fixturesNeedingDetails.length === 0) {
+    return fixtures
+  }
+
+  const detailsByFixtureId = new Map()
+  const detailResults = await Promise.allSettled(
+    fixturesNeedingDetails.map(async (fixture) => {
+      const detail = await fetchJson(`${PULSE_BASE_URL}/fixtures/${fixture.id}`)
+      return [fixture.id, detail] as const
+    }),
+  )
+
+  for (const result of detailResults) {
+    if (result.status === 'fulfilled') {
+      detailsByFixtureId.set(result.value[0], result.value[1])
+    }
+  }
+
+  return fixtures.map((fixture) => {
+    const detail = detailsByFixtureId.get(fixture.id)
+
+    if (!detail) {
+      return fixture
+    }
+
+    const eventFacts = getEventFacts(detail)
+
+    return {
+      ...fixture,
+      scorers: eventFacts.scorers.length > 0 ? eventFacts.scorers : fixture.scorers,
+      assists: eventFacts.assists.length > 0 ? eventFacts.assists : fixture.assists,
+    }
+  })
 }
 
 function normalizePulseTeam(team) {
@@ -507,14 +553,48 @@ function withLocalPlayerPhoto(leader) {
   return leader
 }
 
-function getTeamGoals(fixture, teamId) {
-  if (fixture.status === 'U') {
+function normalizeFixtureState(fixture, homeTeamId, awayTeamId) {
+  const statusPhase = normalizeStatusPhase(fixture)
+  const elapsedMinutes = getElapsedMinutes(fixture, statusPhase)
+
+  return {
+    statusPhase,
+    elapsedMinutes,
+    status: getStatusLabel(statusPhase, elapsedMinutes),
+    homeScore: getFixtureScore(fixture, homeTeamId, 0, statusPhase),
+    awayScore: getFixtureScore(fixture, awayTeamId, 1, statusPhase),
+  }
+}
+
+function getFixtureScore(fixture, teamId, teamIndex, statusPhase) {
+  const explicitTeamScore = getTeamScore(fixture.teams?.[teamIndex]?.score)
+
+  if (explicitTeamScore !== null) {
+    return explicitTeamScore
+  }
+
+  const aggregatedScore =
+    getTeamScore(fixture.score?.[teamId]) ??
+    getTeamScore(fixture.score?.[teamIndex]) ??
+    getTeamScore(fixture.result?.[teamId]) ??
+    getTeamScore(fixture.result?.[teamIndex])
+
+  if (aggregatedScore !== null) {
+    return aggregatedScore
+  }
+
+  if (statusPhase === 'SCHEDULED' || statusPhase === 'POSTPONED') {
     return null
   }
 
   return (fixture.goals ?? []).filter(
     (goal) => String(goal.team?.id ?? goal.teamId) === teamId,
   ).length
+}
+
+function getTeamScore(value) {
+  const score = Number(value)
+  return Number.isFinite(score) ? score : null
 }
 
 function getGoalNames(goals = []) {
@@ -529,15 +609,101 @@ function getAssistNames(goals = []) {
     .filter(Boolean)
 }
 
-function normalizeStatus(status) {
-  const statuses = {
-    U: 'Not played yet',
-    L: 'Live',
-    C: 'Full-time',
-    P: 'Postponed',
+function getEventFacts(detail) {
+  const playerNamesById = new Map()
+
+  for (const teamList of detail.teamLists ?? []) {
+    for (const player of [
+      ...(teamList.lineup ?? []),
+      ...(teamList.substitutes ?? []),
+    ]) {
+      playerNamesById.set(
+        String(player.id ?? player.playerId),
+        player.name?.display ?? 'Player TBC',
+      )
+    }
   }
 
-  return statuses[status] ?? status ?? 'TBC'
+  const goalEvents = (detail.events ?? []).filter((event) => event.type === 'G')
+
+  return {
+    scorers: goalEvents
+      .map((event) => playerNamesById.get(String(event.personId)))
+      .filter(Boolean),
+    assists: goalEvents
+      .map((event) => playerNamesById.get(String(event.assistId)))
+      .filter(Boolean),
+  }
+}
+
+function normalizeStatusPhase(fixture) {
+  const status = String(fixture.status ?? '').toUpperCase()
+  const phase = String(fixture.phase ?? '').toUpperCase()
+  const clockLabel = String(fixture.clock?.label ?? '').toUpperCase()
+
+  if (status === 'P') {
+    return 'POSTPONED'
+  }
+
+  if (status === 'C' || phase === 'F') {
+    return 'FULL_TIME'
+  }
+
+  if (clockLabel === 'HT' || phase === 'H' || phase === 'HT') {
+    return 'HALF_TIME'
+  }
+
+  if (status === 'L') {
+    return 'LIVE'
+  }
+
+  if (status === 'U') {
+    return 'SCHEDULED'
+  }
+
+  return 'UNKNOWN'
+}
+
+function getElapsedMinutes(fixture, statusPhase) {
+  if (statusPhase !== 'LIVE') {
+    return null
+  }
+
+  const explicitElapsed = Number(fixture.clock?.mins ?? fixture.clock?.minutes)
+
+  if (Number.isFinite(explicitElapsed) && explicitElapsed >= 0) {
+    return Math.trunc(explicitElapsed)
+  }
+
+  const clockSeconds = Number(fixture.clock?.secs)
+
+  if (Number.isFinite(clockSeconds) && clockSeconds >= 0) {
+    return Math.max(0, Math.floor(clockSeconds / 60))
+  }
+
+  const match = String(fixture.clock?.label ?? '').match(/(\d+)/)
+
+  if (!match) {
+    return null
+  }
+
+  return Number(match[1])
+}
+
+function getStatusLabel(statusPhase, elapsedMinutes) {
+  if (statusPhase === 'LIVE') {
+    return elapsedMinutes !== null ? `${elapsedMinutes}'` : 'Live'
+  }
+
+  const labels = {
+    SCHEDULED: 'Not played yet',
+    HALF_TIME: 'HT',
+    FULL_TIME: 'FT',
+    POSTPONED: 'Postponed',
+    UNKNOWN: 'TBC',
+  }
+
+  return labels[statusPhase] ?? 'TBC'
 }
 
 function normalizeName(value) {

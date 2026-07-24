@@ -26,10 +26,10 @@ insert into public.fixtures (
 )
 values
   ('aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa', 'test', 'test', 'future', 1, now() + interval '7 days', 'scheduled', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
-  ('bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb', 'test', 'test', 'locked', 2, now() + interval '30 minutes', 'scheduled', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
+  ('bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb', 'test', 'test', 'locked', 2, now() - interval '5 minutes', 'scheduled', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
   ('cccccccc-3333-4333-8333-cccccccccccc', 'test', 'test', 'preseason-open', 0, now() + interval '2 hours', 'scheduled', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
   ('dddddddd-4444-4444-8444-dddddddddddd', 'test', 'test', 'preseason-later', 0, now() + interval '7 days', 'scheduled', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
-  ('eeeeeeee-5555-4555-8555-eeeeeeeeeeee', 'test', 'test', 'preseason-locked', 0, now() + interval '30 minutes', 'scheduled', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+  ('eeeeeeee-5555-4555-8555-eeeeeeeeeeee', 'test', 'test', 'preseason-locked', 0, now() - interval '5 minutes', 'scheduled', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
@@ -68,11 +68,11 @@ select throws_ok(
     values ('11111111-1111-4111-8111-111111111111', 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb', 2, 1, 1)$$,
   '42501',
   null,
-  'database rejects predictions inside the 1-hour fixture lock'
+  'database rejects predictions after kickoff'
 );
 select ok(
   not public.is_fixture_match_week_locked('cccccccc-3333-4333-8333-cccccccccccc'),
-  'preseason fixture remains open until one hour before kickoff'
+  'preseason fixture remains open until kickoff'
 );
 select lives_ok(
   $$insert into public.predictions (user_id, fixture_id, match_week, predicted_home_score, predicted_away_score)
@@ -88,7 +88,7 @@ select throws_ok(
     values ('11111111-1111-4111-8111-111111111111', 'eeeeeeee-5555-4555-8555-eeeeeeeeeeee', 0, 1, 0)$$,
   '42501',
   null,
-  'database rejects preseason predictions inside the 1-hour fixture lock'
+  'database rejects preseason predictions after kickoff'
 );
 
 reset role;

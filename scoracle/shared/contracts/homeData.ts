@@ -15,6 +15,8 @@ export const FixtureSchema = z.object({
   matchweek: z.number().int(),
   kickoffUtc: z.string(),
   status: z.string(),
+  statusPhase: z.string().optional(),
+  elapsedMinutes: z.number().int().nullable().optional(),
   venue: z.string(),
   homeTeamId: z.string(),
   awayTeamId: z.string(),

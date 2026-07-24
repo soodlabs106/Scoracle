@@ -82,9 +82,7 @@ async function fetchPredictionHistoryFromTables(): Promise<PredictionHistoryRpcR
 
     const homeTeam = teamsById.get(fixture.home_team_id)
     const awayTeam = teamsById.get(fixture.away_team_id)
-    const lockAt = new Date(
-      new Date(fixture.kickoff_utc).getTime() - 60 * 60 * 1000,
-    ).toISOString()
+    const lockAt = new Date(new Date(fixture.kickoff_utc).getTime()).toISOString()
 
     return [{
       prediction_id: prediction.id,

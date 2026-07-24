@@ -47,7 +47,7 @@ const TOUR_STEPS: TourStep[] = [
     targetId: 'prediction-card',
     eyebrow: 'Fixtures',
     title: 'Enter home and away scores',
-    body: 'Use the score boxes on each fixture card. You can change predictions until the match week locks.',
+    body: 'Use the score boxes on each fixture card. You can change predictions until kickoff.',
   },
   {
     id: 'save',

@@ -47,14 +47,14 @@ export const helpSections: HelpSection[] = [
   {
     id: 'deleting-locks',
     title: 'Deleting predictions and lock time',
-    summary: 'Each fixture locks 1 hour before kickoff.',
+    summary: 'Each fixture locks when kickoff starts.',
     items: [
       'Use the trash icon beside Your prediction or in profile history to delete an unlocked prediction.',
       'Deletion is permanent and requires confirmation from the profile page.',
       'When the lock icon appears, predictions can no longer be created, changed, or deleted.',
       'Locking is enforced by the database as well as the screen, so refreshing cannot bypass it.',
     ],
-    keywords: ['delete', 'trash', 'lock', '1 hour', 'kickoff'],
+    keywords: ['delete', 'trash', 'lock', 'kickoff', 'start'],
   },
   {
     id: 'scoring',

@@ -26,9 +26,7 @@ export function getFixturePredictionKey(fixture: Fixture) {
 }
 
 export function getProfileFixtureLockAt(fixture: Fixture) {
-  return new Date(
-    new Date(fixture.kickoffUtc).getTime() - 60 * 60 * 1000,
-  ).toISOString()
+  return new Date(new Date(fixture.kickoffUtc).getTime()).toISOString()
 }
 
 export function compareHistoryItems(first: HistoryItem, second: HistoryItem) {
