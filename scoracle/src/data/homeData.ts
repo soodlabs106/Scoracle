@@ -30,6 +30,8 @@ export type Fixture = {
   matchweek: number
   kickoffUtc: string
   status: string
+  statusPhase?: string
+  elapsedMinutes?: number | null
   venue: string
   homeTeamId: string
   awayTeamId: string
@@ -336,14 +338,16 @@ export const mockHomeData: HomeData = {
       id: '128731',
       matchweek: 0,
       kickoffUtc: '2026-07-18T15:00:00.000Z',
-      status: 'Not played yet',
+      status: 'FT',
+      statusPhase: 'FULL_TIME',
+      elapsedMinutes: null,
       venue: 'Helsinki Olympic Stadium, Helsinki',
       homeTeamId: '12',
       awayTeamId: '195',
-      homeScore: null,
-      awayScore: null,
-      scorers: [],
-      assists: [],
+      homeScore: 0,
+      awayScore: 1,
+      scorers: ['Sam Smith'],
+      assists: ["Lewis O'Brien"],
       watch: 'TBC',
     },
     {

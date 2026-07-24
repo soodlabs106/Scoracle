@@ -106,7 +106,7 @@ describe('prediction history compatibility', () => {
       away_team_code: 'LEE',
       predicted_home_score: 2,
       predicted_away_score: 1,
-      matchweek_lock_at: '2026-08-22T18:00:00.000Z',
+      matchweek_lock_at: '2026-08-22T19:00:00.000Z',
     })
     expect(rows[1]).toMatchObject({
       prediction_id: 'prediction-2',
@@ -115,7 +115,7 @@ describe('prediction history compatibility', () => {
       away_team_code: 'ARS',
       predicted_home_score: 3,
       predicted_away_score: 1,
-      matchweek_lock_at: '2026-07-24T15:00:00.000Z',
+      matchweek_lock_at: '2026-07-24T16:00:00.000Z',
     })
   })
 

@@ -59,7 +59,7 @@ describe('profile history helpers', () => {
     })
 
     expect(getFixturePredictionKey(fixture)).toBe('provider:128731')
-    expect(getProfileFixtureLockAt(fixture)).toBe('2026-07-18T14:00:00.000Z')
+    expect(getProfileFixtureLockAt(fixture)).toBe('2026-07-18T15:00:00.000Z')
   })
 
   it('sorts preseason before league history by matchweek and kickoff', () => {
@@ -75,7 +75,7 @@ describe('profile history helpers', () => {
         homeScore: null,
         awayScore: null,
       },
-      matchweekLockAt: '2026-07-18T14:00:00.000Z',
+      matchweekLockAt: '2026-07-18T15:00:00.000Z',
     }
     const league: HistoryItem = {
       prediction: buildPrediction({
@@ -89,7 +89,7 @@ describe('profile history helpers', () => {
         homeScore: null,
         awayScore: null,
       },
-      matchweekLockAt: '2026-08-21T18:00:00.000Z',
+      matchweekLockAt: '2026-08-21T19:00:00.000Z',
     }
 
     const sorted = [preseason, league].sort(compareHistoryItems)
@@ -110,13 +110,13 @@ describe('profile history helpers', () => {
         homeScore: null,
         awayScore: null,
       },
-      matchweekLockAt: '2026-07-18T14:00:00.000Z',
+      matchweekLockAt: '2026-07-18T15:00:00.000Z',
     }
 
     vi.setSystemTime(new Date('2026-07-17T12:00:00.000Z'))
     expect(isHistoryItemLocked(item)).toBe(false)
 
-    vi.setSystemTime(new Date('2026-07-18T14:30:00.000Z'))
+    vi.setSystemTime(new Date('2026-07-18T15:00:00.000Z'))
     expect(isHistoryItemLocked(item)).toBe(true)
   })
 })

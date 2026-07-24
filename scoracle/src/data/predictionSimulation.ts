@@ -215,7 +215,9 @@ function applySimulatedScores(
 
     return {
       ...fixture,
-      status: 'Full-time',
+      status: 'FT',
+      statusPhase: 'FULL_TIME',
+      elapsedMinutes: null,
       homeScore: score.actualHome,
       awayScore: score.actualAway,
     }

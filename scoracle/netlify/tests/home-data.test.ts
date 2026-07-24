@@ -57,6 +57,10 @@ describe('home-data preseason merge', () => {
               kickoffMillis: Date.parse('2026-08-21T19:00:00.000Z'),
               homeTeam: { id: '1', name: 'Arsenal', shortName: 'Arsenal' },
               awayTeam: { id: '12', name: 'Manchester United', shortName: 'Man Utd' },
+              status: 'L',
+              phase: '1',
+              clockSecs: 4020,
+              teamScores: [1, 0],
             }),
           ],
         })
@@ -71,7 +75,49 @@ describe('home-data preseason merge', () => {
               kickoffMillis: Date.parse('2026-07-18T15:00:00.000Z'),
               homeTeam: { id: '12', name: 'Manchester United', shortName: 'Man Utd' },
               awayTeam: { id: '195', name: 'Wrexham', shortName: 'Wrexham' },
+              status: 'C',
+              phase: 'F',
+              clockSecs: 5520,
+              teamScores: [0, 1],
+              goals: [
+                {
+                  team: { id: '195' },
+                  person: { name: { display: 'Sam Smith' } },
+                  assist: { name: { display: 'Alex Jones' } },
+                },
+              ],
             }),
+          ],
+        })
+      }
+
+      if (url.includes('/football/fixtures/128731')) {
+        return jsonResponse({
+          teamLists: [
+            {
+              lineup: [],
+              substitutes: [],
+            },
+            {
+              lineup: [
+                {
+                  id: 14980,
+                  name: { display: 'Sam Smith' },
+                },
+                {
+                  id: 24353,
+                  name: { display: "Lewis O'Brien" },
+                },
+              ],
+              substitutes: [],
+            },
+          ],
+          events: [
+            {
+              type: 'G',
+              personId: 14980,
+              assistId: 24353,
+            },
           ],
         })
       }
@@ -135,12 +181,24 @@ describe('home-data preseason merge', () => {
       awayTeamId: '195',
       dbId: 'fixture-db-1',
       providerFixtureId: '128731',
+      status: 'FT',
+      statusPhase: 'FULL_TIME',
+      elapsedMinutes: null,
+      homeScore: 0,
+      awayScore: 1,
+      scorers: ['Sam Smith'],
+      assists: ["Lewis O'Brien"],
     })
     expect(payload.fixtures[1]).toMatchObject({
       id: '128923',
       matchweek: 1,
       dbId: 'fixture-db-2',
       providerFixtureId: '128923',
+      status: "67'",
+      statusPhase: 'LIVE',
+      elapsedMinutes: 67,
+      homeScore: 1,
+      awayScore: 0,
     })
     expect(payload.teams).toEqual(
       expect.arrayContaining([
@@ -161,27 +219,39 @@ function pulseFixture({
   kickoffMillis,
   homeTeam,
   awayTeam,
+  status = 'U',
+  phase = '0',
+  clockSecs,
+  teamScores = [undefined, undefined],
+  goals = [],
 }: {
   id: string
   gameweek: number
   kickoffMillis: number
   homeTeam: { id: string; name: string; shortName: string }
   awayTeam: { id: string; name: string; shortName: string }
+  status?: string
+  phase?: string
+  clockSecs?: number
+  teamScores?: Array<number | undefined>
+  goals?: unknown[]
 }) {
   return {
     id,
     gameweek: { gameweek },
     kickoff: { millis: kickoffMillis },
-    status: 'U',
+    status,
+    phase,
     ground: {
       name: 'Test Stadium',
       city: 'Test City',
     },
     teams: [
-      { team: homeTeam },
-      { team: awayTeam },
+      { team: homeTeam, score: teamScores[0] },
+      { team: awayTeam, score: teamScores[1] },
     ],
-    goals: [],
+    clock: clockSecs === undefined ? undefined : { secs: clockSecs },
+    goals,
   }
 }
 

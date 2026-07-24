@@ -1,3 +1,4 @@
+import { statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
@@ -17,6 +18,15 @@ type NetlifyFunctionModule = {
     body?: string
     queryStringParameters: Record<string, string>
   }) => Promise<NetlifyFunctionResult>
+}
+
+async function loadNetlifyFunctionModule(relativePath: string) {
+  const absolutePath = resolve(process.cwd(), relativePath)
+  const fileUrl = pathToFileURL(absolutePath)
+  const version = statSync(absolutePath).mtimeMs
+  fileUrl.searchParams.set('t', String(version))
+
+  return (await import(fileUrl.href)) as NetlifyFunctionModule
 }
 
 // https://vite.dev/config/
@@ -69,12 +79,9 @@ export default defineConfig(({ mode }) => {
         configureServer(server) {
           server.middlewares.use('/api/home-data', async (request, response) => {
             try {
-              const functionPath = pathToFileURL(
-                resolve(process.cwd(), 'netlify/functions/home-data.ts'),
-              ).href
-              const { handler } = (await import(
-                functionPath
-              )) as NetlifyFunctionModule
+              const { handler } = await loadNetlifyFunctionModule(
+                'netlify/functions/home-data.ts',
+              )
               const url = new URL(request.url ?? '', 'http://localhost')
               const result = await handler({
                 httpMethod: request.method,
@@ -105,15 +112,9 @@ export default defineConfig(({ mode }) => {
             '/api/cache-oauth-avatar',
             async (request, response) => {
               try {
-                const functionPath = pathToFileURL(
-                  resolve(
-                    process.cwd(),
-                    'netlify/functions/cache-oauth-avatar.ts',
-                  ),
-                ).href
-                const { handler } = (await import(
-                  functionPath
-                )) as NetlifyFunctionModule
+                const { handler } = await loadNetlifyFunctionModule(
+                  'netlify/functions/cache-oauth-avatar.ts',
+                )
                 const url = new URL(request.url ?? '', 'http://localhost')
                 const body = await readRequestBody(request)
                 const result = await handler({
@@ -147,12 +148,9 @@ export default defineConfig(({ mode }) => {
             '/api/team-details',
             async (request, response) => {
               try {
-                const functionPath = pathToFileURL(
-                  resolve(process.cwd(), 'netlify/functions/team-details.ts'),
-                ).href
-                const { handler } = (await import(
-                  functionPath
-                )) as NetlifyFunctionModule
+                const { handler } = await loadNetlifyFunctionModule(
+                  'netlify/functions/team-details.ts',
+                )
                 const url = new URL(request.url ?? '', 'http://localhost')
                 const result = await handler({
                   httpMethod: request.method,
@@ -184,15 +182,9 @@ export default defineConfig(({ mode }) => {
             '/api/admin/user-status',
             async (request, response) => {
               try {
-                const functionPath = pathToFileURL(
-                  resolve(
-                    process.cwd(),
-                    'netlify/functions/admin-user-status.ts',
-                  ),
-                ).href
-                const { handler } = (await import(
-                  functionPath
-                )) as NetlifyFunctionModule
+                const { handler } = await loadNetlifyFunctionModule(
+                  'netlify/functions/admin-user-status.ts',
+                )
                 const result = await handler({
                   httpMethod: request.method,
                   headers: request.headers as Record<string, string>,
@@ -216,12 +208,9 @@ export default defineConfig(({ mode }) => {
 
           server.middlewares.use('/api/health', async (request, response) => {
             try {
-              const functionPath = pathToFileURL(
-                resolve(process.cwd(), 'netlify/functions/health.ts'),
-              ).href
-              const { handler } = (await import(
-                functionPath
-              )) as NetlifyFunctionModule
+              const { handler } = await loadNetlifyFunctionModule(
+                'netlify/functions/health.ts',
+              )
               const result = await handler({
                 httpMethod: request.method,
                 headers: request.headers as Record<string, string>,

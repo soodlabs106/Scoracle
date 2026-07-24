@@ -10,7 +10,7 @@ export function getFixtureLockInfo(fixture: Fixture) {
   }
 
   const kickoffAt = new Date(fixture.kickoffUtc).getTime()
-  const lockAt = new Date(kickoffAt - 60 * 60 * 1000)
+  const lockAt = new Date(kickoffAt)
 
   return {
     isLocked: Date.now() >= lockAt.getTime(),
@@ -56,7 +56,7 @@ export function getDefaultPredictionMatchweek(fixtures: Fixture[]) {
       )
       const earliestFixtureLockAt = Math.min(
         ...weekFixtures.map(
-          (fixture) => new Date(fixture.kickoffUtc).getTime() - 60 * 60 * 1000,
+          (fixture) => new Date(fixture.kickoffUtc).getTime(),
         ),
       )
 

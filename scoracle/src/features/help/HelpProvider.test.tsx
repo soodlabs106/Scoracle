@@ -24,7 +24,7 @@ describe('HelpProvider', () => {
 
     await user.type(screen.getByRole('searchbox', { name: 'Search help' }), 'delete')
     expect(screen.getByText('Deleting predictions and lock time')).toBeVisible()
-    expect(screen.getByText('Each fixture locks 1 hour before kickoff.')).toBeVisible()
+    expect(screen.getByText('Each fixture locks when kickoff starts.')).toBeVisible()
     expect(screen.queryByText('Finding fixtures')).not.toBeInTheDocument()
 
     await user.keyboard('{Escape}')
